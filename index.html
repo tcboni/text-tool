@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Tool — Character Inspector</title>
+<style>
+  /* ============================================================
+     TEXT TOOL — a character/string dissection instrument.
+     Aesthetic: "laboratory oscilloscope" — near-black canvas,
+     hairline grid, warm amber signal color, cool cyan for meta.
+     No gradients-and-glow AI cliché; this is an instrument panel.
+     ============================================================ */
+
+  :root{
+    --bg:        #0c0d0f;
+    --bg-grid:   rgba(255,255,255,.020);
+    --panel:     #131519;
+    --panel-2:   #16191e;
+    --line:      rgba(255,255,255,.075);
+    --line-soft: rgba(255,255,255,.045);
+    --ink:       #e9e6df;   /* warm off-white */
+    --ink-dim:   #9aa0a8;
+    --ink-faint: #61666e;
+    --amber:     #ffb454;   /* primary signal */
+    --amber-dim: #b9823a;
+    --cyan:      #5fc9d6;   /* secondary / meta */
+    --violet:    #a99bf0;   /* rare tertiary for flags */
+    --rose:      #f0768b;   /* warnings */
+    --green:     #93d07f;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --r: 10px;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 100% 26px,
+      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0 / 26px 100%,
+      radial-gradient(1200px 600px at 78% -10%, rgba(255,180,84,.05), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+
+  .wrap{ max-width:1120px; margin:0 auto; padding:34px 26px 90px; }
+
+  /* ---------- header ---------- */
+  header{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap;
+          padding-bottom:22px; border-bottom:1px solid var(--line); margin-bottom:26px; }
+  .brand{ display:flex; align-items:center; gap:15px; }
+  .mark{
+    width:44px; height:44px; flex:0 0 auto; border:1px solid var(--line); border-radius:9px;
+    display:grid; place-items:center; background:var(--panel);
+    font-family:var(--mono); font-weight:700; color:var(--amber); font-size:20px;
+    box-shadow: inset 0 0 0 1px rgba(255,180,84,.08), 0 1px 0 rgba(255,255,255,.03);
+    position:relative;
+  }
+  .mark::after{ content:""; position:absolute; inset:5px; border:1px dashed rgba(255,180,84,.22); border-radius:5px; }
+  h1{ font-size:20px; margin:0; letter-spacing:.02em; font-weight:650; }
+  h1 span{ color:var(--ink-faint); font-weight:400; }
+  .tag{ font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); letter-spacing:.06em; text-transform:uppercase; margin-top:2px; }
+  .legend{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); text-align:right; letter-spacing:.04em; }
+  .legend b{ color:var(--amber); font-weight:600; }
+  .legend .c{ color:var(--cyan); }
+
+  /* ---------- input ---------- */
+  .inputcard{ position:relative; border:1px solid var(--line); border-radius:var(--r); background:var(--panel);
+              overflow:hidden; }
+  .inputcard .rail{ position:absolute; left:0; top:0; bottom:0; width:3px;
+                    background:linear-gradient(var(--amber), var(--amber-dim)); opacity:.75; }
+  .inputcard label{ display:block; font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+                    text-transform:uppercase; color:var(--ink-faint); padding:12px 16px 0 20px; }
+  #input{
+    width:100%; min-height:104px; resize:vertical; border:0; outline:0; background:transparent;
+    color:var(--ink); font-family:var(--mono); font-size:22px; line-height:1.45; padding:10px 16px 16px 20px;
+  }
+  #input::placeholder{ color:var(--ink-faint); }
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; padding:10px 16px 12px 20px; border-top:1px solid var(--line-soft);
+            align-items:center; }
+  .chipbtn{ font-family:var(--mono); font-size:12px; color:var(--ink-dim); background:var(--panel-2);
+            border:1px solid var(--line); padding:5px 10px; border-radius:7px; cursor:pointer; transition:.12s; }
+  .chipbtn:hover{ color:var(--ink); border-color:rgba(255,180,84,.4); background:#1b1f25; }
+  .chipbtn.mut{ color:var(--ink-faint); }
+  .spacer{ flex:1; }
+
+  /* ---------- warnings ---------- */
+  #warn{ margin-top:16px; display:none; }
+  #warn.on{ display:block; }
+  .banner{ border:1px solid rgba(240,118,139,.35); background:rgba(240,118,139,.07); border-radius:var(--r);
+           padding:12px 16px; font-size:13.5px; color:#f4b3bd; display:flex; gap:12px; align-items:flex-start; }
+  .banner .ic{ color:var(--rose); font-family:var(--mono); font-weight:700; }
+  .banner b{ color:#ffd7de; }
+
+  /* ---------- stats ---------- */
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1px;
+          background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; margin-top:16px; }
+  .stat{ background:var(--panel); padding:14px 16px; }
+  .stat .n{ font-family:var(--mono); font-size:25px; font-weight:600; color:var(--amber); line-height:1; }
+  .stat .k{ font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); margin-top:7px; }
+
+  /* ---------- section scaffolding ---------- */
+  section{ margin-top:30px; }
+  .sechead{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; }
+  .sechead h2{ font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim);
+               margin:0; font-weight:600; }
+  .sechead .rule{ flex:1; height:1px; background:var(--line-soft); }
+  .sechead .hint{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+
+  /* ---------- grapheme strip ---------- */
+  .strip{ display:flex; flex-wrap:wrap; gap:9px; }
+  .gcell{ position:relative; min-width:58px; border:1px solid var(--line); border-radius:9px; background:var(--panel);
+          padding:10px 8px 8px; cursor:pointer; transition:.12s; text-align:center; }
+  .gcell:hover{ border-color:rgba(255,180,84,.5); background:#1a1e24; transform:translateY(-1px); }
+  .gcell.sel{ border-color:var(--amber); background:#1d2026; box-shadow:0 0 0 1px var(--amber) inset, 0 6px 20px rgba(0,0,0,.4); }
+  .gcell .glyph{ font-family:var(--sans); font-size:30px; line-height:1.15; min-height:38px; color:var(--ink);
+                 display:flex; align-items:center; justify-content:center; }
+  .gcell .idx{ position:absolute; top:4px; left:6px; font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); }
+  .gcell .cpn{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:5px; }
+  .gcell .badge{ position:absolute; top:4px; right:5px; font-family:var(--mono); font-size:9px; color:var(--cyan);
+                 background:rgba(95,201,214,.1); border-radius:4px; padding:1px 4px; }
+  .ghost{ color:var(--ink-faint); font-family:var(--mono); font-size:13px; padding:24px 0; }
+
+  /* placeholder for invisibles */
+  .nonprint{ font-family:var(--mono); font-size:12px; color:var(--rose); }
+
+  /* ---------- inspector ---------- */
+  .inspect{ display:grid; grid-template-columns:260px 1fr; gap:18px; }
+  @media (max-width:820px){ .inspect{ grid-template-columns:1fr; } }
+
+  .specimen{ border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden;
+             align-self:start; position:sticky; top:16px; }
+  .specimen .big{ height:190px; display:grid; place-items:center; font-size:96px; color:var(--ink);
+                  background:
+                    linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/100% 19px,
+                    linear-gradient(90deg,var(--line-soft) 1px, transparent 1px) 0 0/19px 100%,
+                    #101216;
+                  border-bottom:1px solid var(--line); position:relative; word-break:break-all; text-align:center; padding:8px; }
+  .specimen .big .np{ font-family:var(--mono); font-size:15px; color:var(--rose); text-align:center; line-height:1.5; }
+  .specimen .meta{ padding:14px 16px; }
+  .specimen .u{ font-family:var(--mono); font-size:20px; color:var(--amber); }
+  .specimen .nm{ font-size:13px; color:var(--ink); margin-top:6px; line-height:1.4; }
+  .specimen .sub{ font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); margin-top:8px; }
+  .pills{ display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 16px; }
+  .pill{ font-family:var(--mono); font-size:10.5px; padding:3px 8px; border-radius:20px; border:1px solid var(--line);
+         color:var(--ink-dim); }
+  .pill.on{ color:#101216; background:var(--cyan); border-color:var(--cyan); font-weight:600; }
+  .pill.amb{ color:#101216; background:var(--amber); border-color:var(--amber); font-weight:600; }
+  .pill.vio{ color:#101216; background:var(--violet); border-color:var(--violet); font-weight:600; }
+
+  /* codepoint selector for multi-cp graphemes */
+  .cpsel{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .cptab{ font-family:var(--mono); font-size:11.5px; color:var(--ink-dim); background:var(--panel-2);
+          border:1px solid var(--line); padding:6px 10px; border-radius:7px; cursor:pointer; display:flex; gap:7px; align-items:center; }
+  .cptab:hover{ border-color:rgba(255,180,84,.4); color:var(--ink); }
+  .cptab.sel{ border-color:var(--amber); color:var(--amber); }
+  .cptab .role{ color:var(--ink-faint); font-size:10px; }
+  .cptab.sel .role{ color:var(--amber-dim); }
+
+  /* data table */
+  .data{ border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden; }
+  .grp{ border-top:1px solid var(--line-soft); }
+  .grp:first-child{ border-top:0; }
+  .grp .gt{ font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+            color:var(--amber-dim); padding:10px 16px 4px; }
+  .row{ display:grid; grid-template-columns:170px 1fr; gap:14px; padding:6px 16px; align-items:baseline;
+        cursor:copy; transition:background .1s; }
+  .row:hover{ background:#181c21; }
+  .row:hover .copyhint{ opacity:1; }
+  .row .k{ font-size:12px; color:var(--ink-dim); }
+  .row .v{ font-family:var(--mono); font-size:13px; color:var(--ink); word-break:break-all; position:relative; }
+  .row .v .hl{ color:var(--amber); }
+  .row .v .b{ color:var(--cyan); }
+  .row .v .dim{ color:var(--ink-faint); }
+  .copyhint{ position:absolute; right:0; top:0; font-size:9.5px; color:var(--ink-faint); opacity:0; letter-spacing:.05em;
+             font-family:var(--mono); text-transform:uppercase; }
+  @media (max-width:560px){ .row{ grid-template-columns:1fr; gap:2px; } }
+
+  /* byte matrix */
+  .bytes{ display:flex; flex-wrap:wrap; gap:7px; padding:4px 16px 14px; }
+  .byte{ border:1px solid var(--line); border-radius:7px; background:#101216; padding:7px 9px; text-align:center; min-width:64px; }
+  .byte .hex{ font-family:var(--mono); font-size:14px; color:var(--amber); }
+  .byte .bin{ font-family:var(--mono); font-size:10px; color:var(--cyan); letter-spacing:.05em; margin-top:3px; }
+  .byte .dec{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); margin-top:2px; }
+  .byte .lbl{ font-family:var(--mono); font-size:8.5px; color:var(--ink-faint); margin-top:4px; text-transform:uppercase; letter-spacing:.06em; }
+
+  /* string level tools */
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:820px){ .cols{ grid-template-columns:1fr; } }
+  .card{ border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden; }
+  .card .ch{ font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+             color:var(--ink-dim); padding:12px 16px; border-bottom:1px solid var(--line-soft); display:flex; justify-content:space-between; }
+  .card .ch .eq{ color:var(--green); text-transform:none; letter-spacing:0; }
+  .card .ch .neq{ color:var(--rose); text-transform:none; letter-spacing:0; }
+  .hexdump{ font-family:var(--mono); font-size:12px; line-height:1.7; padding:12px 16px; overflow-x:auto; white-space:pre;
+            color:var(--ink); }
+  .hexdump .off{ color:var(--ink-faint); }
+  .hexdump .as{ color:var(--cyan); }
+  .kv{ padding:8px 16px 14px; }
+  .kv .row2{ display:grid; grid-template-columns:130px 1fr; gap:12px; padding:5px 0; cursor:copy; align-items:baseline; }
+  .kv .row2:hover{ background:#181c21; }
+  .kv .row2 .k{ font-size:12px; color:var(--ink-dim); }
+  .kv .row2 .v{ font-family:var(--mono); font-size:12.5px; color:var(--ink); word-break:break-all; }
+
+  footer{ margin-top:46px; padding-top:20px; border-top:1px solid var(--line-soft);
+          font-family:var(--mono); font-size:11px; color:var(--ink-faint); text-align:center; letter-spacing:.04em; }
+
+  /* toast */
+  #toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
+          background:var(--amber); color:#101216; font-family:var(--mono); font-size:12.5px; font-weight:600;
+          padding:9px 16px; border-radius:8px; pointer-events:none; transition:.2s; z-index:50; letter-spacing:.02em; }
+  #toast.on{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  ::selection{ background:rgba(255,180,84,.28); }
+  .empty{ color:var(--ink-faint); font-family:var(--mono); font-size:13px; padding:40px 0; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="mark">T</div>
+      <div>
+        <h1>Text Tool <span>/ character inspector</span></h1>
+        <div class="tag">dissect · decode · demystify</div>
+      </div>
+    </div>
+    <div class="legend">
+      color key — <b>signal value</b> · <span class="c">meta / encoding</span><br>
+      click any row to copy · click a cell to inspect
+    </div>
+  </header>
+
+  <div class="inputcard">
+    <div class="rail"></div>
+    <label for="input">input string</label>
+    <textarea id="input" spellcheck="false" autocomplete="off" placeholder="Type or paste anything — a letter, emoji 👩🏽‍🚀, flag 🇯🇵, ligature, or invisible character…"></textarea>
+    <div class="toolbar">
+      <button class="chipbtn" data-sample="A">A</button>
+      <button class="chipbtn" data-sample="é">é</button>
+      <button class="chipbtn" data-sample="👩🏽‍🚀">👩🏽‍🚀 astronaut</button>
+      <button class="chipbtn" data-sample="🇯🇵">🇯🇵 flag</button>
+      <button class="chipbtn" data-sample="👨‍👩‍👧‍👦">👨‍👩‍👧‍👦 family</button>
+      <button class="chipbtn" data-sample="ﷺ">ﷺ ligature</button>
+      <button class="chipbtn" data-sample="𝕳">𝕳 math</button>
+      <button class="chipbtn" data-sample="a&#8203;b">zero-width</button>
+      <span class="spacer"></span>
+      <button class="chipbtn mut" id="clearbtn">clear</button>
+    </div>
+  </div>
+
+  <div id="warn"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <section id="graphemeSec">
+    <div class="sechead">
+      <h2>Grapheme Clusters</h2><div class="rule"></div>
+      <span class="hint" id="graphemeHint"></span>
+    </div>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <section id="inspectSec">
+    <div class="sechead">
+      <h2>Inspector</h2><div class="rule"></div>
+      <span class="hint" id="inspectHint"></span>
+    </div>
+    <div class="inspect">
+      <div class="specimen" id="specimen"></div>
+      <div>
+        <div class="cpsel" id="cpsel"></div>
+        <div class="data" id="detail"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stringSec">
+    <div class="sechead">
+      <h2>String-Level Analysis</h2><div class="rule"></div>
+      <span class="hint">whole input</span>
+    </div>
+    <div class="cols">
+      <div class="card">
+        <div class="ch"><span>UTF-8 hex dump</span><span id="dumpLen"></span></div>
+        <div class="hexdump" id="hexdump"></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span>encodings & transforms</span></div>
+        <div class="kv" id="strkv"></div>
+      </div>
+    </div>
+    <div class="cols" style="margin-top:18px;">
+      <div class="card">
+        <div class="ch"><span>Unicode normalization</span><span id="normState"></span></div>
+        <div class="kv" id="normkv"></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span>segmentation</span></div>
+        <div class="kv" id="segkv"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="empty" id="emptyState">Awaiting input — the instrument is idle.</div>
+
+  <footer>
+    TEXT TOOL · single-file · zero dependencies · everything computed locally in your browser
+  </footer>
+</div>
+
+<div id="toast">copied</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   REFERENCE DATA
+   ============================================================ */
+
+// General category codes -> human names
+const GC = {
+  Lu:"Uppercase Letter", Ll:"Lowercase Letter", Lt:"Titlecase Letter",
+  Lm:"Modifier Letter", Lo:"Other Letter",
+  Mn:"Nonspacing Mark", Mc:"Spacing Combining Mark", Me:"Enclosing Mark",
+  Nd:"Decimal Number", Nl:"Letter Number", No:"Other Number",
+  Pc:"Connector Punctuation", Pd:"Dash Punctuation", Ps:"Open Punctuation",
+  Pe:"Close Punctuation", Pi:"Initial Punctuation", Pf:"Final Punctuation", Po:"Other Punctuation",
+  Sm:"Math Symbol", Sc:"Currency Symbol", Sk:"Modifier Symbol", So:"Other Symbol",
+  Zs:"Space Separator", Zl:"Line Separator", Zp:"Paragraph Separator",
+  Cc:"Control", Cf:"Format", Cs:"Surrogate", Co:"Private Use", Cn:"Unassigned"
+};
+const GC_ORDER = Object.keys(GC);
+
+// scripts probed via \p{Script=…}
+const SCRIPTS = ["Latin","Greek","Cyrillic","Armenian","Hebrew","Arabic","Syriac","Thaana",
+  "Devanagari","Bengali","Gurmukhi","Gujarati","Oriya","Tamil","Telugu","Kannada","Malayalam",
+  "Sinhala","Thai","Lao","Tibetan","Myanmar","Georgian","Hangul","Ethiopic","Cherokee",
+  "Canadian_Aboriginal","Ogham","Runic","Khmer","Mongolian","Hiragana","Katakana","Bopomofo",
+  "Han","Yi","Coptic","Tagalog","Braille","Glagolitic","Tifinagh","Cuneiform","Egyptian_Hieroglyphs",
+  "Deseret","Shavian","Osmanya","Gothic","Old_Italic","Phoenician","Cham","Vai","Bamum","Javanese",
+  "Balinese","Sundanese","Batak","Lepcha","Ol_Chiki","Adlam","Common","Inherited"];
+
+// Named characters that deserve an explicit human label (beyond C0/C1)
+const CONTROL_NAMES = {
+  0x00:"NULL",0x01:"START OF HEADING",0x02:"START OF TEXT",0x03:"END OF TEXT",0x04:"END OF TRANSMISSION",
+  0x05:"ENQUIRY",0x06:"ACKNOWLEDGE",0x07:"BELL",0x08:"BACKSPACE",0x09:"CHARACTER TABULATION (TAB)",
+  0x0A:"LINE FEED (LF)",0x0B:"LINE TABULATION (VT)",0x0C:"FORM FEED (FF)",0x0D:"CARRIAGE RETURN (CR)",
+  0x0E:"SHIFT OUT",0x0F:"SHIFT IN",0x10:"DATA LINK ESCAPE",0x11:"DEVICE CONTROL ONE",0x12:"DEVICE CONTROL TWO",
+  0x13:"DEVICE CONTROL THREE",0x14:"DEVICE CONTROL FOUR",0x15:"NEGATIVE ACKNOWLEDGE",0x16:"SYNCHRONOUS IDLE",
+  0x17:"END OF TRANSMISSION BLOCK",0x18:"CANCEL",0x19:"END OF MEDIUM",0x1A:"SUBSTITUTE",0x1B:"ESCAPE",
+  0x1C:"FILE SEPARATOR",0x1D:"GROUP SEPARATOR",0x1E:"RECORD SEPARATOR",0x1F:"UNIT SEPARATOR",
+  0x20:"SPACE",0x7F:"DELETE",
+  0x80:"<control>",0x85:"NEXT LINE (NEL)"
+};
+const SPECIAL_NAMES = {
+  0xA0:"NO-BREAK SPACE",0xAD:"SOFT HYPHEN",0x200B:"ZERO WIDTH SPACE",0x200C:"ZERO WIDTH NON-JOINER",
+  0x200D:"ZERO WIDTH JOINER",0x200E:"LEFT-TO-RIGHT MARK",0x200F:"RIGHT-TO-LEFT MARK",
+  0x2028:"LINE SEPARATOR",0x2029:"PARAGRAPH SEPARATOR",0x202A:"LEFT-TO-RIGHT EMBEDDING",
+  0x202B:"RIGHT-TO-LEFT EMBEDDING",0x202C:"POP DIRECTIONAL FORMATTING",0x202D:"LEFT-TO-RIGHT OVERRIDE",
+  0x202E:"RIGHT-TO-LEFT OVERRIDE",0x2060:"WORD JOINER",0x2066:"LEFT-TO-RIGHT ISOLATE",
+  0x2067:"RIGHT-TO-LEFT ISOLATE",0x2068:"FIRST STRONG ISOLATE",0x2069:"POP DIRECTIONAL ISOLATE",
+  0xFEFF:"ZERO WIDTH NO-BREAK SPACE (BOM)",0xFE0F:"VARIATION SELECTOR-16 (emoji)",
+  0xFE0E:"VARIATION SELECTOR-15 (text)",0x3000:"IDEOGRAPHIC SPACE",0x2007:"FIGURE SPACE",
+  0x00A9:"COPYRIGHT SIGN",0x2122:"TRADE MARK SIGN",0x20AC:"EURO SIGN"
+};
+
+// Unicode block ranges (comprehensive, [start,end,name])
+const BLOCKS = [
+[0x0000,0x007F,"Basic Latin"],[0x0080,0x00FF,"Latin-1 Supplement"],[0x0100,0x017F,"Latin Extended-A"],
+[0x0180,0x024F,"Latin Extended-B"],[0x0250,0x02AF,"IPA Extensions"],[0x02B0,0x02FF,"Spacing Modifier Letters"],
+[0x0300,0x036F,"Combining Diacritical Marks"],[0x0370,0x03FF,"Greek and Coptic"],[0x0400,0x04FF,"Cyrillic"],
+[0x0500,0x052F,"Cyrillic Supplement"],[0x0530,0x058F,"Armenian"],[0x0590,0x05FF,"Hebrew"],[0x0600,0x06FF,"Arabic"],
+[0x0700,0x074F,"Syriac"],[0x0750,0x077F,"Arabic Supplement"],[0x0780,0x07BF,"Thaana"],[0x07C0,0x07FF,"NKo"],
+[0x0800,0x083F,"Samaritan"],[0x0840,0x085F,"Mandaic"],[0x0860,0x086F,"Syriac Supplement"],[0x0900,0x097F,"Devanagari"],
+[0x0980,0x09FF,"Bengali"],[0x0A00,0x0A7F,"Gurmukhi"],[0x0A80,0x0AFF,"Gujarati"],[0x0B00,0x0B7F,"Oriya"],
+[0x0B80,0x0BFF,"Tamil"],[0x0C00,0x0C7F,"Telugu"],[0x0C80,0x0CFF,"Kannada"],[0x0D00,0x0D7F,"Malayalam"],
+[0x0D80,0x0DFF,"Sinhala"],[0x0E00,0x0E7F,"Thai"],[0x0E80,0x0EFF,"Lao"],[0x0F00,0x0FFF,"Tibetan"],
+[0x1000,0x109F,"Myanmar"],[0x10A0,0x10FF,"Georgian"],[0x1100,0x11FF,"Hangul Jamo"],[0x1200,0x137F,"Ethiopic"],
+[0x1380,0x139F,"Ethiopic Supplement"],[0x13A0,0x13FF,"Cherokee"],[0x1400,0x167F,"Unified Canadian Aboriginal Syllabics"],
+[0x1680,0x169F,"Ogham"],[0x16A0,0x16FF,"Runic"],[0x1700,0x171F,"Tagalog"],[0x1780,0x17FF,"Khmer"],
+[0x1800,0x18AF,"Mongolian"],[0x1900,0x194F,"Limbu"],[0x1980,0x19DF,"New Tai Lue"],[0x1A00,0x1A1F,"Buginese"],
+[0x1B00,0x1B7F,"Balinese"],[0x1B80,0x1BBF,"Sundanese"],[0x1C00,0x1C4F,"Lepcha"],[0x1C50,0x1C7F,"Ol Chiki"],
+[0x1D00,0x1D7F,"Phonetic Extensions"],[0x1DC0,0x1DFF,"Combining Diacritical Marks Supplement"],
+[0x1E00,0x1EFF,"Latin Extended Additional"],[0x1F00,0x1FFF,"Greek Extended"],[0x2000,0x206F,"General Punctuation"],
+[0x2070,0x209F,"Superscripts and Subscripts"],[0x20A0,0x20CF,"Currency Symbols"],
+[0x20D0,0x20FF,"Combining Diacritical Marks for Symbols"],[0x2100,0x214F,"Letterlike Symbols"],
+[0x2150,0x218F,"Number Forms"],[0x2190,0x21FF,"Arrows"],[0x2200,0x22FF,"Mathematical Operators"],
+[0x2300,0x23FF,"Miscellaneous Technical"],[0x2400,0x243F,"Control Pictures"],[0x2440,0x245F,"Optical Character Recognition"],
+[0x2460,0x24FF,"Enclosed Alphanumerics"],[0x2500,0x257F,"Box Drawing"],[0x2580,0x259F,"Block Elements"],
+[0x25A0,0x25FF,"Geometric Shapes"],[0x2600,0x26FF,"Miscellaneous Symbols"],[0x2700,0x27BF,"Dingbats"],
+[0x27C0,0x27EF,"Miscellaneous Mathematical Symbols-A"],[0x27F0,0x27FF,"Supplemental Arrows-A"],
+[0x2800,0x28FF,"Braille Patterns"],[0x2900,0x297F,"Supplemental Arrows-B"],
+[0x2980,0x29FF,"Miscellaneous Mathematical Symbols-B"],[0x2A00,0x2AFF,"Supplemental Mathematical Operators"],
+[0x2B00,0x2BFF,"Miscellaneous Symbols and Arrows"],[0x2C60,0x2C7F,"Latin Extended-C"],[0x2E00,0x2E7F,"Supplemental Punctuation"],
+[0x2E80,0x2EFF,"CJK Radicals Supplement"],[0x2F00,0x2FDF,"Kangxi Radicals"],[0x2FF0,0x2FFF,"Ideographic Description Characters"],
+[0x3000,0x303F,"CJK Symbols and Punctuation"],[0x3040,0x309F,"Hiragana"],[0x30A0,0x30FF,"Katakana"],
+[0x3100,0x312F,"Bopomofo"],[0x3130,0x318F,"Hangul Compatibility Jamo"],[0x3190,0x319F,"Kanbun"],
+[0x31C0,0x31EF,"CJK Strokes"],[0x31F0,0x31FF,"Katakana Phonetic Extensions"],[0x3200,0x32FF,"Enclosed CJK Letters and Months"],
+[0x3300,0x33FF,"CJK Compatibility"],[0x3400,0x4DBF,"CJK Unified Ideographs Extension A"],[0x4DC0,0x4DFF,"Yijing Hexagram Symbols"],
+[0x4E00,0x9FFF,"CJK Unified Ideographs"],[0xA000,0xA48F,"Yi Syllables"],[0xA490,0xA4CF,"Yi Radicals"],
+[0xA4D0,0xA4FF,"Lisu"],[0xA700,0xA71F,"Modifier Tone Letters"],[0xA720,0xA7FF,"Latin Extended-D"],
+[0xA800,0xA82F,"Syloti Nagri"],[0xA840,0xA87F,"Phags-pa"],[0xA900,0xA92F,"Kayah Li"],[0xA930,0xA95F,"Rejang"],
+[0xA960,0xA97F,"Hangul Jamo Extended-A"],[0xA980,0xA9DF,"Javanese"],[0xAA00,0xAA5F,"Cham"],
+[0xAA60,0xAA7F,"Myanmar Extended-A"],[0xAC00,0xD7AF,"Hangul Syllables"],[0xD800,0xDB7F,"High Surrogates"],
+[0xDC00,0xDFFF,"Low Surrogates"],[0xE000,0xF8FF,"Private Use Area"],[0xF900,0xFAFF,"CJK Compatibility Ideographs"],
+[0xFB00,0xFB4F,"Alphabetic Presentation Forms"],[0xFB50,0xFDFF,"Arabic Presentation Forms-A"],
+[0xFE00,0xFE0F,"Variation Selectors"],[0xFE10,0xFE1F,"Vertical Forms"],[0xFE20,0xFE2F,"Combining Half Marks"],
+[0xFE30,0xFE4F,"CJK Compatibility Forms"],[0xFE50,0xFE6F,"Small Form Variants"],[0xFE70,0xFEFF,"Arabic Presentation Forms-B"],
+[0xFF00,0xFFEF,"Halfwidth and Fullwidth Forms"],[0xFFF0,0xFFFF,"Specials"],
+[0x10000,0x1007F,"Linear B Syllabary"],[0x10140,0x1018F,"Ancient Greek Numbers"],[0x10190,0x101CF,"Ancient Symbols"],
+[0x10300,0x1032F,"Old Italic"],[0x10330,0x1034F,"Gothic"],[0x10380,0x1039F,"Ugaritic"],[0x103A0,0x103DF,"Old Persian"],
+[0x10400,0x1044F,"Deseret"],[0x10450,0x1047F,"Shavian"],[0x10480,0x104AF,"Osmanya"],[0x104B0,0x104FF,"Osage"],
+[0x10800,0x1083F,"Cypriot Syllabary"],[0x10900,0x1091F,"Phoenician"],[0x10A00,0x10A5F,"Kharoshthi"],
+[0x10E60,0x10E7F,"Rumi Numeral Symbols"],[0x11000,0x1107F,"Brahmi"],[0x11100,0x1114F,"Chakma"],
+[0x11680,0x116CF,"Takri"],[0x12000,0x123FF,"Cuneiform"],[0x12400,0x1247F,"Cuneiform Numbers and Punctuation"],
+[0x13000,0x1342F,"Egyptian Hieroglyphs"],[0x14400,0x14646,"Anatolian Hieroglyphs"],[0x16800,0x16A3F,"Bamum Supplement"],
+[0x16A40,0x16A6F,"Mro"],[0x16F00,0x16F9F,"Miao"],[0x1B000,0x1B0FF,"Kana Supplement"],[0x1BC00,0x1BC9F,"Duployan"],
+[0x1D000,0x1D0FF,"Byzantine Musical Symbols"],[0x1D100,0x1D1FF,"Musical Symbols"],
+[0x1D200,0x1D24F,"Ancient Greek Musical Notation"],[0x1D300,0x1D35F,"Tai Xuan Jing Symbols"],
+[0x1D360,0x1D37F,"Counting Rod Numerals"],[0x1D400,0x1D7FF,"Mathematical Alphanumeric Symbols"],
+[0x1E800,0x1E8DF,"Mende Kikakui"],[0x1E900,0x1E95F,"Adlam"],[0x1EC70,0x1ECBF,"Indic Siyaq Numbers"],
+[0x1EE00,0x1EEFF,"Arabic Mathematical Alphabetic Symbols"],[0x1F000,0x1F02F,"Mahjong Tiles"],
+[0x1F030,0x1F09F,"Domino Tiles"],[0x1F0A0,0x1F0FF,"Playing Cards"],[0x1F100,0x1F1FF,"Enclosed Alphanumeric Supplement"],
+[0x1F200,0x1F2FF,"Enclosed Ideographic Supplement"],[0x1F300,0x1F5FF,"Miscellaneous Symbols and Pictographs"],
+[0x1F600,0x1F64F,"Emoticons"],[0x1F650,0x1F67F,"Ornamental Dingbats"],[0x1F680,0x1F6FF,"Transport and Map Symbols"],
+[0x1F700,0x1F77F,"Alchemical Symbols"],[0x1F780,0x1F7FF,"Geometric Shapes Extended"],
+[0x1F800,0x1F8FF,"Supplemental Arrows-C"],[0x1F900,0x1F9FF,"Supplemental Symbols and Pictographs"],
+[0x1FA00,0x1FA6F,"Chess Symbols"],[0x1FA70,0x1FAFF,"Symbols and Pictographs Extended-A"],
+[0x20000,0x2A6DF,"CJK Unified Ideographs Extension B"],[0x2A700,0x2B73F,"CJK Unified Ideographs Extension C"],
+[0x2B740,0x2B81F,"CJK Unified Ideographs Extension D"],[0x2F800,0x2FA1F,"CJK Compatibility Ideographs Supplement"],
+[0xE0000,0xE007F,"Tags"],[0xE0100,0xE01EF,"Variation Selectors Supplement"],
+[0xF0000,0xFFFFF,"Supplementary Private Use Area-A"],[0x100000,0x10FFFF,"Supplementary Private Use Area-B"]
+];
+
+// common named HTML entities (reverse: codepoint -> name)
+const HTML_ENT = {
+  34:"quot",38:"amp",39:"apos",60:"lt",62:"gt",160:"nbsp",161:"iexcl",162:"cent",163:"pound",164:"curren",
+  165:"yen",166:"brvbar",167:"sect",168:"uml",169:"copy",170:"ordf",171:"laquo",172:"not",173:"shy",174:"reg",
+  175:"macr",176:"deg",177:"plusmn",178:"sup2",179:"sup3",180:"acute",181:"micro",182:"para",183:"middot",
+  184:"cedil",185:"sup1",186:"ordm",187:"raquo",188:"frac14",189:"frac12",190:"frac34",191:"iquest",
+  215:"times",247:"divide",8194:"ensp",8195:"emsp",8201:"thinsp",8204:"zwnj",8205:"zwj",8206:"lrm",8207:"rlm",
+  8211:"ndash",8212:"mdash",8216:"lsquo",8217:"rsquo",8220:"ldquo",8221:"rdquo",8224:"dagger",8225:"Dagger",
+  8226:"bull",8230:"hellip",8240:"permil",8242:"prime",8243:"Prime",8249:"lsaquo",8250:"rsaquo",8254:"oline",
+  8260:"frasl",8364:"euro",8482:"trade",8592:"larr",8593:"uarr",8594:"rarr",8595:"darr",8596:"harr",
+  8722:"minus",8734:"infin",8776:"asymp",8800:"ne",8804:"le",8805:"ge",9829:"hearts",9824:"spades",
+  9827:"clubs",9830:"diams",224:"agrave",225:"aacute",233:"eacute",241:"ntilde",252:"uuml",231:"ccedil"
+};
+
+/* ============================================================
+   ENCODING HELPERS
+   ============================================================ */
+
+function utf8Bytes(cp){
+  if(cp<=0x7F) return [cp];
+  if(cp<=0x7FF) return [0xC0|(cp>>6), 0x80|(cp&0x3F)];
+  if(cp<=0xFFFF) return [0xE0|(cp>>12), 0x80|((cp>>6)&0x3F), 0x80|(cp&0x3F)];
+  return [0xF0|(cp>>18), 0x80|((cp>>12)&0x3F), 0x80|((cp>>6)&0x3F), 0x80|(cp&0x3F)];
+}
+function utf16Units(cp){
+  if(cp<=0xFFFF) return [cp];
+  const c = cp - 0x10000;
+  return [0xD800 + (c>>10), 0xDC00 + (c&0x3FF)];
+}
+const bin  = (n,w)=> n.toString(2).padStart(w,"0");
+const hex  = (n,w=2)=> n.toString(16).toUpperCase().padStart(w,"0");
+const oct  = (n)=> n.toString(8);
+function b64(bytes){
+  let s=""; for(const b of bytes) s+=String.fromCharCode(b);
+  return btoa(s);
+}
+function groupBits(str, size=4){ // pretty-print a bitstring
+  const out=[]; for(let i=0;i<str.length;i+=size) out.push(str.slice(i,i+size));
+  return out.join(" ");
+}
+
+/* ============================================================
+   PER-CODEPOINT PROPERTIES
+   ============================================================ */
+
+function testP(prop, ch){ try{ return new RegExp("\\p{"+prop+"}","u").test(ch); }catch(e){ return false; } }
+
+function blockOf(cp){
+  for(const [a,b,name] of BLOCKS) if(cp>=a && cp<=b) return name;
+  return "Unassigned / No Block";
+}
+function categoryOf(ch){
+  for(const c of GC_ORDER){ if(testP("gc="+c, ch)) return c; }
+  return "Cn";
+}
+function scriptOf(ch){
+  for(const s of SCRIPTS){ if(testP("Script="+s, ch)) return s; }
+  return "Unknown";
+}
+function nameOf(cp, ch, cat){
+  if(cp in CONTROL_NAMES && cp<=0x9F) return CONTROL_NAMES[cp];
+  if(cp in SPECIAL_NAMES) return SPECIAL_NAMES[cp];
+  if(cp>=0x1F3FB && cp<=0x1F3FF) return "EMOJI MODIFIER FITZPATRICK TYPE-"+(cp-0x1F3FB+1)+ (cp-0x1F3FB<2?"-2":cp-0x1F3FB<3?"-3":cp-0x1F3FB<4?"-4":cp-0x1F3FB<5?"-5":"-6");
+  if(cp>=0x1F1E6 && cp<=0x1F1FF) return "REGIONAL INDICATOR SYMBOL LETTER "+String.fromCharCode(65+(cp-0x1F1E6));
+  if(cp>=0xE0020 && cp<=0xE007E) return "TAG "+JSON.stringify(String.fromCodePoint(cp-0xE0000));
+  if(cp===0xE007F) return "CANCEL TAG";
+  if(cat==="Co") return "<private-use>";
+  if(cat==="Cs") return "<surrogate>";
+  if(cat==="Cn") return "<unassigned>";
+  return null; // no local name DB — properties describe it instead
+}
+
+// role of a codepoint inside a grapheme cluster (for emoji dissection)
+function roleOf(cp, ch){
+  if(cp===0x200D) return "zero-width joiner";
+  if(cp===0xFE0F) return "emoji presentation (VS16)";
+  if(cp===0xFE0E) return "text presentation (VS15)";
+  if(cp>=0xFE00 && cp<=0xFE0F) return "variation selector";
+  if(cp>=0xE0100 && cp<=0xE01EF) return "variation selector supp.";
+  if(cp>=0x1F3FB && cp<=0x1F3FF) return "skin-tone modifier";
+  if(cp>=0x1F1E6 && cp<=0x1F1FF) return "regional indicator";
+  if(cp>=0xE0020 && cp<=0xE007F) return "tag";
+  if(testP("gc=Mn", ch)) return "combining mark";
+  if(testP("gc=Mc", ch)) return "spacing mark";
+  if(testP("gc=Me", ch)) return "enclosing mark";
+  if(testP("Extended_Pictographic", ch)) return "pictographic base";
+  return "base";
+}
+
+function analyzeCodepoint(cp){
+  const ch = String.fromCodePoint(cp);
+  const cat = categoryOf(ch);
+  const bytes = utf8Bytes(cp);
+  const units = utf16Units(cp);
+  const isControl = cat==="Cc" || cat==="Cf" || cat==="Cs" || cat==="Co" || cat==="Cn";
+  const isSpace = testP("White_Space", ch);
+  const zeroWidth = [0x200B,0x200C,0x200D,0x2060,0xFEFF].includes(cp) || (cp>=0xFE00&&cp<=0xFE0F) || (cp>=0xE0100&&cp<=0xE01EF);
+  const combining = testP("gc=Mn",ch)||testP("gc=Mc",ch)||testP("gc=Me",ch);
+  const isEmoji = testP("Emoji", ch);
+  const isPict  = testP("Extended_Pictographic", ch);
+  const printable = !isControl && !zeroWidth && cp!==0x20 && cp>0x1F;
+
+  return {
+    cp, ch, cat, catName: GC[cat],
+    name: nameOf(cp, ch, cat),
+    role: roleOf(cp, ch),
+    script: scriptOf(ch),
+    block: blockOf(cp),
+    bytes, units,
+    flags:{
+      letter: testP("L",ch), number: testP("N",ch), punct: testP("P",ch),
+      symbol: testP("S",ch), mark: testP("M",ch),
+      uppercase: testP("Uppercase",ch), lowercase: testP("Lowercase",ch),
+      whitespace:isSpace, control:isControl, zeroWidth, combining,
+      emoji:isEmoji, emojiPresentation:testP("Emoji_Presentation",ch),
+      emojiModifier:testP("Emoji_Modifier",ch), emojiModifierBase:testP("Emoji_Modifier_Base",ch),
+      pictographic:isPict, bidiControl:testP("Bidi_Control",ch),
+      ascii: cp<=0x7F, bmp: cp<=0xFFFF, astral: cp>0xFFFF, printable,
+      dash: testP("Dash",ch), quotation: testP("Quotation_Mark",ch),
+      hexDigit: testP("Hex_Digit",ch), diacritic: testP("Diacritic",ch),
+      alphabetic: testP("Alphabetic",ch), math: testP("gc=Sm",ch),
+    },
+    upper: ch.toUpperCase(), lower: ch.toLowerCase(),
+    numericValue: (()=>{ const v = "0123456789".includes(ch)? Number(ch): (testP("Nd",ch)? ch.charCodeAt(0): null); return v; })()
+  };
+}
+
+/* ============================================================
+   RENDER HELPERS
+   ============================================================ */
+
+const $ = s=>document.querySelector(s);
+const el=(t,c,h)=>{ const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
+
+let toastTimer;
+function copy(text){
+  const done=()=>{ const t=$("#toast"); t.textContent="copied  "+ (text.length>18? text.slice(0,18)+"…":text); t.classList.add("on");
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),1200); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done,done); }
+  else { const ta=el("textarea"); ta.value=text; document.body.appendChild(ta); ta.select();
+         try{document.execCommand("copy");}catch(e){} ta.remove(); done(); }
+}
+
+function dataRow(k, v, copyVal){
+  const r = el("div","row");
+  r.appendChild(el("div","k",k));
+  r.appendChild(el("div","v", v + '<span class="copyhint">copy</span>'));
+  r.addEventListener("click",()=>copy(copyVal!=null?copyVal:stripTags(v)));
+  return r;
+}
+function stripTags(h){ const d=el("div",null,h); return d.textContent; }
+
+/* ============================================================
+   STATE + MAIN RENDER
+   ============================================================ */
+
+let graphemes = [];      // array of {cluster, cps:[analysis...]}
+let selGrapheme = 0;
+let selCp = 0;
+
+const seg = (typeof Intl!=="undefined" && Intl.Segmenter);
+
+function splitGraphemes(str){
+  if(seg){ const s=new Intl.Segmenter(undefined,{granularity:"grapheme"});
+    return [...s.segment(str)].map(x=>x.segment); }
+  return [...str]; // fallback: code points
+}
+
+function render(){
+  const str = $("#input").value;
+  const empty = str.length===0;
+  $("#emptyState").style.display = empty? "block":"none";
+  ["#stats","#graphemeSec","#inspectSec","#stringSec"].forEach(s=>{ $(s).style.display = empty?"none":""; });
+  $("#warn").className = "";
+  if(empty){ $("#warn").innerHTML=""; return; }
+
+  // build grapheme model
+  const clusters = splitGraphemes(str);
+  graphemes = clusters.map(cluster=>{
+    const cps = [...cluster].map(c=>analyzeCodepoint(c.codePointAt(0)));
+    return { cluster, cps };
+  });
+  if(selGrapheme>=graphemes.length) selGrapheme=0;
+
+  renderWarnings(str);
+  renderStats(str, clusters);
+  renderStrip();
+  renderInspector();
+  renderStringLevel(str);
+}
+
+function renderWarnings(str){
+  const found = [];
+  for(const g of graphemes) for(const a of g.cps){
+    if(a.flags.bidiControl) found.push(["bidi",a]);
+    else if(a.flags.zeroWidth) found.push(["zw",a]);
+    else if(a.flags.control && a.cp!==0x0A && a.cp!==0x09 && a.cp!==0x0D) found.push(["ctrl",a]);
+    else if(a.cat==="Co") found.push(["priv",a]);
+  }
+  const w=$("#warn");
+  if(!found.length){ w.className=""; w.innerHTML=""; return; }
+  const types = {
+    bidi:"bidirectional control characters (possible Trojan-Source / text-spoofing vector)",
+    zw:"zero-width / invisible characters",
+    ctrl:"control characters",
+    priv:"private-use characters (renderer-dependent)"
+  };
+  const seen = new Set(found.map(f=>f[0]));
+  const list = [...seen].map(k=>types[k]).join(", ");
+  const detail = found.slice(0,8).map(([,a])=>"U+"+hex(a.cp,4)).join(", ");
+  w.className="on";
+  w.innerHTML = '<div class="banner"><span class="ic">⚠</span><div>This string contains <b>'+found.length+
+    '</b> hidden or non-printing character'+(found.length>1?'s':'')+' — '+list+'.<br><span style="color:var(--ink-dim);font-family:var(--mono);font-size:12px">'+
+    detail+(found.length>8?" …":"")+'</span></div></div>';
+}
+
+function renderStats(str, clusters){
+  const cps = [...str];
+  const utf8 = cps.reduce((n,c)=>n+utf8Bytes(c.codePointAt(0)).length,0);
+  const utf16 = str.length; // JS string length = UTF-16 code units
+  let words=0, sentences=0;
+  if(seg){ words = [...new Intl.Segmenter(undefined,{granularity:"word"}).segment(str)].filter(s=>s.isWordLike).length; }
+  else { words = (str.trim().match(/\S+/g)||[]).length; }
+  const stats = [
+    [clusters.length, "graphemes"],
+    [cps.length, "code points"],
+    [utf8, "UTF-8 bytes"],
+    [utf16, "UTF-16 units"],
+    [words, "words"],
+    [(str.match(/\n/g)||[]).length+ (str?1:0), "lines"],
+  ];
+  $("#stats").innerHTML = stats.map(([n,k])=>
+    '<div class="stat"><div class="n">'+n+'</div><div class="k">'+k+'</div></div>').join("");
+}
+
+function displayGlyph(cluster, cps){
+  // decide how to show a cluster in cells / specimen
+  const first = cps[0];
+  if(cps.length===1 && (first.flags.control || first.flags.zeroWidth || first.cp===0x20 || first.cp===0xA0)){
+    const label = first.name || first.catName;
+    return {html:'<span class="nonprint">'+shortLabel(first)+'</span>', printable:false, label};
+  }
+  return {html: escapeHtml(cluster), printable:true, label:null};
+}
+function shortLabel(a){
+  const map={0x20:"SP",0xA0:"NBSP",0x09:"TAB",0x0A:"LF",0x0D:"CR",0x200B:"ZWSP",0x200C:"ZWNJ",0x200D:"ZWJ",
+    0xFEFF:"BOM",0x2060:"WJ",0xAD:"SHY",0xFE0F:"VS16",0xFE0E:"VS15"};
+  return map[a.cp] || (a.cat==="Cc"?"CTRL":"·");
+}
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function renderStrip(){
+  const strip=$("#strip"); strip.innerHTML="";
+  $("#graphemeHint").textContent = graphemes.length+" cluster"+(graphemes.length>1?"s":"")+" · click to inspect";
+  graphemes.forEach((g,i)=>{
+    const cell=el("div","gcell"+(i===selGrapheme?" sel":""));
+    const disp=displayGlyph(g.cluster, g.cps);
+    cell.appendChild(el("div","idx", i));
+    if(g.cps.length>1) cell.appendChild(el("div","badge", g.cps.length+"×"));
+    cell.appendChild(el("div","glyph", disp.html));
+    const cpText = g.cps.length===1? "U+"+hex(g.cps[0].cp,4) : g.cps.length+" code points";
+    cell.appendChild(el("div","cpn", cpText));
+    cell.addEventListener("click",()=>{ selGrapheme=i; selCp=0; renderStrip(); renderInspector();
+      document.querySelector("#inspectSec").scrollIntoView({behavior:"smooth",block:"nearest"}); });
+    strip.appendChild(cell);
+  });
+}
+
+function renderInspector(){
+  const g = graphemes[selGrapheme];
+  if(!g) return;
+  if(selCp>=g.cps.length) selCp=0;
+
+  // specimen (shows the whole cluster)
+  const disp = displayGlyph(g.cluster, g.cps);
+  const spec=$("#specimen");
+  const bigInner = disp.printable? escapeHtml(g.cluster)
+      : '<div class="np">'+ (g.cps[0].name||g.cps[0].catName) +'<br>«non-printing»</div>';
+  const utf8len = g.cps.reduce((n,a)=>n+a.bytes.length,0);
+  const utf16len = g.cps.reduce((n,a)=>n+a.units.length,0);
+  spec.innerHTML =
+    '<div class="big">'+bigInner+'</div>'+
+    '<div class="meta">'+
+      '<div class="u">'+ g.cps.map(a=>"U+"+hex(a.cp,4)).join(" ") +'</div>'+
+      '<div class="nm">'+ (g.cps.length>1? "Grapheme cluster of "+g.cps.length+" code points"
+                          : (g.cps[0].name || g.cps[0].catName)) +'</div>'+
+      '<div class="sub">'+ g.cps.length+' code point'+(g.cps.length>1?'s':'')+' · '+utf8len+' UTF-8 bytes · '+utf16len+' UTF-16 units</div>'+
+    '</div>'+
+    clusterPills(g);
+  $("#inspectHint").textContent = "grapheme "+selGrapheme+ (g.cps.length>1? " · "+g.cps.length+" code points":"");
+
+  // code point selector (only if multi)
+  const cpsel=$("#cpsel"); cpsel.innerHTML="";
+  if(g.cps.length>1){
+    g.cps.forEach((a,i)=>{
+      const t=el("div","cptab"+(i===selCp?" sel":""));
+      t.innerHTML = "U+"+hex(a.cp,4)+' <span class="role">'+a.role+'</span>';
+      t.addEventListener("click",()=>{ selCp=i; renderInspector(); });
+      cpsel.appendChild(t);
+    });
+  }
+
+  renderDetail(g.cps[selCp]);
+}
+
+function clusterPills(g){
+  const set=new Set();
+  for(const a of g.cps){
+    if(a.flags.emoji) set.add("emoji");
+    if(g.cps.some(x=>x.cp===0x200D)) set.add("ZWJ sequence");
+    if(a.flags.emojiModifier) set.add("skin tone");
+    if(a.cp>=0x1F1E6&&a.cp<=0x1F1FF) set.add("flag");
+    if(a.flags.combining) set.add("has combining mark");
+    if(a.flags.astral) set.add("astral");
+    if(a.flags.zeroWidth) set.add("invisible");
+    if(a.flags.bidiControl) set.add("bidi control");
+  }
+  if(!set.size) return "";
+  const cls={"ZWJ sequence":"vio","flag":"vio","emoji":"amb","skin tone":"amb"};
+  return '<div class="pills">'+[...set].map(s=>'<span class="pill '+(cls[s]||"on")+'">'+s+'</span>').join("")+'</div>';
+}
+
+function renderDetail(a){
+  const d=$("#detail"); d.innerHTML="";
+  const cp=a.cp;
+
+  // ---- identity ----
+  const g1=el("div","grp"); g1.appendChild(el("div","gt","Identity"));
+  g1.appendChild(dataRow("Character", a.flags.printable? escapeHtml(a.ch): '<span class="dim">'+(a.name||a.catName)+' (non-printing)</span>', a.ch));
+  if(a.name) g1.appendChild(dataRow("Name", a.name, a.name));
+  g1.appendChild(dataRow("Role in cluster", '<span class="b">'+a.role+'</span>', a.role));
+  g1.appendChild(dataRow("Category", a.cat+' <span class="dim">— '+a.catName+'</span>', a.cat));
+  g1.appendChild(dataRow("Script", a.script, a.script));
+  g1.appendChild(dataRow("Block", a.block, a.block));
+  d.appendChild(g1);
+
+  // ---- code point ----
+  const g2=el("div","grp"); g2.appendChild(el("div","gt","Code Point"));
+  g2.appendChild(dataRow("Unicode", '<span class="hl">U+'+hex(cp,4)+'</span>', "U+"+hex(cp,4)));
+  g2.appendChild(dataRow("Decimal", '<span class="hl">'+cp+'</span>', String(cp)));
+  g2.appendChild(dataRow("Hexadecimal", "0x"+hex(cp,cp>0xFFFF?6:4), "0x"+hex(cp,cp>0xFFFF?6:4)));
+  g2.appendChild(dataRow("Octal", "0o"+oct(cp), "0o"+oct(cp)));
+  g2.appendChild(dataRow("Binary", '<span class="b">'+groupBits(bin(cp, cp>0xFFFF?21:(cp>0xFF?16:8)))+'</span>', bin(cp,8)));
+  d.appendChild(g2);
+
+  // ---- UTF-8 ----
+  const g3=el("div","grp"); g3.appendChild(el("div","gt","UTF-8 · "+a.bytes.length+" byte"+(a.bytes.length>1?"s":"")));
+  const bm=el("div","bytes");
+  a.bytes.forEach((b,i)=>{
+    const c=el("div","byte");
+    c.innerHTML='<div class="hex">'+hex(b,2)+'</div><div class="bin">'+groupBits(bin(b,8))+'</div>'+
+                '<div class="dec">'+b+'</div><div class="lbl">byte '+i+'</div>';
+    c.style.cursor="copy"; c.addEventListener("click",()=>copy(hex(b,2)));
+    bm.appendChild(c);
+  });
+  g3.appendChild(bm);
+  g3.appendChild(dataRow("Hex bytes", a.bytes.map(b=>hex(b,2)).join(" "), a.bytes.map(b=>hex(b,2)).join(" ")));
+  g3.appendChild(dataRow("Escaped", a.bytes.map(b=>"\\x"+hex(b,2).toLowerCase()).join(""), a.bytes.map(b=>"\\x"+hex(b,2).toLowerCase()).join("")));
+  d.appendChild(g3);
+
+  // ---- UTF-16 / UTF-32 ----
+  const g4=el("div","grp"); g4.appendChild(el("div","gt","UTF-16 & UTF-32"));
+  const surro = a.units.length>1;
+  g4.appendChild(dataRow("UTF-16 units", a.units.map(u=>hex(u,4)).join(" ") + (surro?' <span class="dim">(surrogate pair)</span>':' <span class="dim">(BMP, single unit)</span>'), a.units.map(u=>hex(u,4)).join(" ")));
+  if(surro){
+    g4.appendChild(dataRow("High surrogate", "0x"+hex(a.units[0],4), "0x"+hex(a.units[0],4)));
+    g4.appendChild(dataRow("Low surrogate", "0x"+hex(a.units[1],4), "0x"+hex(a.units[1],4)));
+  }
+  g4.appendChild(dataRow("UTF-16 bytes (BE)", a.units.map(u=>hex(u>>8,2)+" "+hex(u&0xFF,2)).join(" "), a.units.map(u=>hex(u>>8,2)+hex(u&0xFF,2)).join("")));
+  g4.appendChild(dataRow("UTF-32 (BE)", hex(cp,8), hex(cp,8)));
+  d.appendChild(g4);
+
+  // ---- references / escapes ----
+  const g5=el("div","grp"); g5.appendChild(el("div","gt","References & Escapes"));
+  const ent = HTML_ENT[cp];
+  g5.appendChild(dataRow("HTML (decimal)", "&amp;#"+cp+";", "&#"+cp+";"));
+  g5.appendChild(dataRow("HTML (hex)", "&amp;#x"+hex(cp,cp>0xFFFF?5:4)+";", "&#x"+hex(cp,cp>0xFFFF?5:4)+";"));
+  if(ent) g5.appendChild(dataRow("HTML (named)", "&amp;"+ent+";", "&"+ent+";"));
+  g5.appendChild(dataRow("CSS escape", "\\"+hex(cp,cp>0xFFFF?6:4), "\\"+hex(cp,cp>0xFFFF?6:4)));
+  const jsEsc = cp<=0xFFFF? "\\u"+hex(cp,4) : a.units.map(u=>"\\u"+hex(u,4)).join("");
+  g5.appendChild(dataRow("JS escape (\\u)", jsEsc, jsEsc));
+  g5.appendChild(dataRow("JS escape (ES6)", "\\u{"+hex(cp,1)+"}", "\\u{"+hex(cp,1)+"}"));
+  g5.appendChild(dataRow("Python escape", cp<=0xFFFF? "\\u"+hex(cp,4): "\\U"+hex(cp,8), cp<=0xFFFF? "\\u"+hex(cp,4): "\\U"+hex(cp,8)));
+  g5.appendChild(dataRow("URL (percent)", a.bytes.map(b=>"%"+hex(b,2)).join(""), a.bytes.map(b=>"%"+hex(b,2)).join("")));
+  g5.appendChild(dataRow("Base64 (UTF-8)", b64(a.bytes), b64(a.bytes)));
+  d.appendChild(g5);
+
+  // ---- transforms ----
+  const g6=el("div","grp"); g6.appendChild(el("div","gt","Case & Numeric"));
+  g6.appendChild(dataRow("Uppercase", a.upper===a.ch?'<span class="dim">— (same)</span>':escapeHtml(a.upper)+' <span class="dim">U+'+[...a.upper].map(c=>hex(c.codePointAt(0),4)).join(" U+")+'</span>', a.upper));
+  g6.appendChild(dataRow("Lowercase", a.lower===a.ch?'<span class="dim">— (same)</span>':escapeHtml(a.lower)+' <span class="dim">U+'+[...a.lower].map(c=>hex(c.codePointAt(0),4)).join(" U+")+'</span>', a.lower));
+  if(a.numericValue!=null) g6.appendChild(dataRow("Numeric value", String(a.numericValue), String(a.numericValue)));
+  d.appendChild(g6);
+
+  // ---- properties ----
+  const g7=el("div","grp"); g7.appendChild(el("div","gt","Properties"));
+  const F=a.flags;
+  const props=[
+    ["ASCII",F.ascii],["Printable",F.printable],["Letter",F.letter],["Alphabetic",F.alphabetic],
+    ["Number",F.number],["Punctuation",F.punct],["Symbol",F.symbol],["Math",F.math],
+    ["Mark / diacritic",F.mark||F.diacritic],["Combining",F.combining],["Whitespace",F.whitespace],
+    ["Control",F.control],["Zero-width",F.zeroWidth],["Uppercase",F.uppercase],["Lowercase",F.lowercase],
+    ["Emoji",F.emoji],["Emoji presentation",F.emojiPresentation],["Emoji modifier",F.emojiModifier],
+    ["Emoji base",F.emojiModifierBase],["Pictographic",F.pictographic],["Bidi control",F.bidiControl],
+    ["Dash",F.dash],["Quotation mark",F.quotation],["Hex digit",F.hexDigit],
+    ["BMP",F.bmp],["Astral (>U+FFFF)",F.astral]
+  ];
+  const pw=el("div","pills"); pw.style.padding="4px 16px 16px";
+  props.forEach(([label,on])=>{ if(on) pw.appendChild(el("span","pill on",label)); });
+  // show a few notable negatives too if nothing much is on
+  if(!pw.children.length) pw.appendChild(el("span","pill","no notable properties"));
+  g7.appendChild(pw);
+  d.appendChild(g7);
+}
+
+/* ============================================================
+   STRING-LEVEL RENDER
+   ============================================================ */
+
+function renderStringLevel(str){
+  const cps=[...str];
+  const bytes=[]; cps.forEach(c=>utf8Bytes(c.codePointAt(0)).forEach(b=>bytes.push(b)));
+
+  // hex dump
+  $("#dumpLen").textContent = bytes.length+" bytes";
+  $("#hexdump").innerHTML = hexDump(bytes);
+
+  // encodings
+  const kv=$("#strkv"); kv.innerHTML="";
+  const allCps = cps.map(c=>"U+"+hex(c.codePointAt(0),4)).join(" ");
+  const rows=[
+    ["Code points", allCps],
+    ["UTF-8 hex", bytes.map(b=>hex(b,2)).join(" ")],
+    ["UTF-8 Base64", b64(bytes)],
+    ["UTF-16 units", cps.flatMap(c=>utf16Units(c.codePointAt(0))).map(u=>hex(u,4)).join(" ")],
+    ["URL-encoded", encodeURIComponent(str)],
+    ["JS string literal", jsLiteral(str)],
+    ["HTML entities", cps.map(c=>{const p=c.codePointAt(0); return HTML_ENT[p]?"&"+HTML_ENT[p]+";":"&#"+p+";";}).join("")],
+    ["Binary (UTF-8)", bytes.map(b=>bin(b,8)).join(" ")],
+    ["Decimal bytes", bytes.join(" ")],
+  ];
+  rows.forEach(([k,v])=> kv.appendChild(kvRow(k,v)));
+
+  // normalization
+  const forms={NFC:str.normalize("NFC"),NFD:str.normalize("NFD"),NFKC:str.normalize("NFKC"),NFKD:str.normalize("NFKD")};
+  const allSame = forms.NFC===str && forms.NFD===str && forms.NFKC===str && forms.NFKD===str;
+  $("#normState").innerHTML = allSame? '<span class="eq">already normalized</span>':'<span class="neq">forms differ</span>';
+  const nkv=$("#normkv"); nkv.innerHTML="";
+  Object.entries(forms).forEach(([name,val])=>{
+    const same = val===str;
+    const lenNote = [...val].length+" cp";
+    nkv.appendChild(kvRow(name, (same?'<span style="color:var(--ink-faint)">(unchanged) </span>':'')+escapeHtml(val)+' — '+lenNote, val));
+  });
+
+  // segmentation
+  const skv=$("#segkv"); skv.innerHTML="";
+  if(seg){
+    const words=[...new Intl.Segmenter(undefined,{granularity:"word"}).segment(str)];
+    const sentences=[...new Intl.Segmenter(undefined,{granularity:"sentence"}).segment(str)];
+    skv.appendChild(kvRow("Grapheme count", String(graphemes.length)));
+    skv.appendChild(kvRow("Word segments", String(words.filter(w=>w.isWordLike).length)+' word-like / '+words.length+' total'));
+    skv.appendChild(kvRow("Sentences", String(sentences.length)));
+    const wl = words.filter(w=>w.isWordLike).map(w=>w.segment).slice(0,20).join(" · ");
+    if(wl) skv.appendChild(kvRow("Words", escapeHtml(wl)+(words.filter(w=>w.isWordLike).length>20?" …":""), words.filter(w=>w.isWordLike).map(w=>w.segment).join(" ")));
+  } else {
+    skv.appendChild(kvRow("Segmentation", "Intl.Segmenter not available in this browser"));
+  }
+  skv.appendChild(kvRow("Reversed (graphemes)", escapeHtml(graphemes.map(g=>g.cluster).reverse().join("")), graphemes.map(g=>g.cluster).reverse().join("")));
+}
+
+function kvRow(k,v,copyVal){
+  const r=el("div","row2");
+  r.appendChild(el("div","k",k));
+  r.appendChild(el("div","v", v));
+  r.addEventListener("click",()=>copy(copyVal!=null?copyVal:stripTags(v)));
+  return r;
+}
+
+function jsLiteral(str){
+  let out='"';
+  for(const ch of str){ const cp=ch.codePointAt(0);
+    if(ch==='"') out+='\\"';
+    else if(ch==='\\') out+='\\\\';
+    else if(cp===0x0A) out+='\\n'; else if(cp===0x09) out+='\\t'; else if(cp===0x0D) out+='\\r';
+    else if(cp<0x20||cp===0x7F) out+='\\u'+hex(cp,4);
+    else if(cp>0xFFFF) out+='\\u{'+hex(cp,1)+'}';
+    else if(cp>0x7E) out+='\\u'+hex(cp,4);
+    else out+=ch;
+  }
+  return out+'"';
+}
+
+function hexDump(bytes){
+  if(!bytes.length) return '<span class="off">(empty)</span>';
+  let out="";
+  for(let i=0;i<bytes.length;i+=16){
+    const slice=bytes.slice(i,i+16);
+    const off='<span class="off">'+hex(i,8)+'</span>';
+    let h=""; for(let j=0;j<16;j++){ h += j<slice.length? hex(slice[j],2)+" " : "   "; if(j===7) h+=" "; }
+    let asc=""; for(const b of slice){ asc += (b>=0x20&&b<0x7F)? escapeHtml(String.fromCharCode(b)) : '<span class="off">.</span>'; }
+    out += off+"  "+h.trimEnd().padEnd(0)+"  <span class=\"as\">"+asc+"</span>\n";
+  }
+  return out.trimEnd();
+}
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+
+$("#input").addEventListener("input", render);
+$("#clearbtn").addEventListener("click", ()=>{ $("#input").value=""; selGrapheme=0; selCp=0; render(); $("#input").focus(); });
+document.querySelectorAll(".chipbtn[data-sample]").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    // decode any HTML entity in the sample (for the zero-width one)
+    const tmp=el("textarea"); tmp.innerHTML=b.dataset.sample;
+    $("#input").value = tmp.value; selGrapheme=0; selCp=0; render(); $("#input").focus();
+  });
+});
+
+// initial demo
+$("#input").value = "Hé👩🏽‍🚀";
+render();
+</script>
+</body>
+</html>
