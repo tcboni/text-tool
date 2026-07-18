@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Text Tool — Character Inspector</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2044%2044'%3E%3Crect%20x='2'%20y='2'%20width='40'%20height='40'%20rx='9'%20fill='%23131519'%20stroke='%232c2e33'/%3E%3Crect%20x='7'%20y='7'%20width='30'%20height='30'%20rx='4'%20fill='none'%20stroke='%23ffb454'%20stroke-opacity='.28'%20stroke-dasharray='3%203'/%3E%3Cpath%20d='M14.5%2015%20H29.5%20V18%20H23.5%20V30%20H20.5%20V18%20H14.5%20Z'%20fill='%23ffb454'/%3E%3C/svg%3E">
 <style>
   /* ============================================================
      TEXT TOOL — a character/string dissection instrument.
      Aesthetic: "laboratory oscilloscope" — near-black canvas,
      hairline grid, warm amber signal color, cool cyan for meta.
-     No gradients-and-glow AI cliché; this is an instrument panel.
      ============================================================ */
 
   :root{
@@ -25,12 +25,13 @@
     --amber:     #ffb454;   /* primary signal */
     --amber-dim: #b9823a;
     --cyan:      #5fc9d6;   /* secondary / meta */
+    --cyan-dim:  #3f7d87;   /* muted cyan — UTF-8 structure bits */
     --violet:    #a99bf0;   /* rare tertiary for flags */
     --rose:      #f0768b;   /* warnings */
     --green:     #93d07f;
     --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
     --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --r: 10px;
+    --radius: 10px;
   }
 
   *{ box-sizing:border-box; }
@@ -49,34 +50,30 @@
     min-height:100vh;
   }
 
-  .wrap{ max-width:1120px; margin:0 auto; padding:34px 26px 90px; }
+  .page{ max-width:1120px; margin:0 auto; padding:34px 26px 90px; }
 
   /* ---------- header ---------- */
-  header{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap;
+  header{ display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;
           padding-bottom:22px; border-bottom:1px solid var(--line); margin-bottom:26px; }
   .brand{ display:flex; align-items:center; gap:15px; }
-  .mark{
-    width:44px; height:44px; flex:0 0 auto; border:1px solid var(--line); border-radius:9px;
-    display:grid; place-items:center; background:var(--panel);
-    font-family:var(--mono); font-weight:700; color:var(--amber); font-size:20px;
-    box-shadow: inset 0 0 0 1px rgba(255,180,84,.08), 0 1px 0 rgba(255,255,255,.03);
-    position:relative;
-  }
-  .mark::after{ content:""; position:absolute; inset:5px; border:1px dashed rgba(255,180,84,.22); border-radius:5px; }
+  .logo{ width:44px; height:44px; flex:0 0 auto; display:block; }
+  .logo svg{ width:44px; height:44px; display:block; }
+  .logo-frame{ fill:var(--panel); stroke:var(--line); stroke-width:1; }
+  .logo-dash{ fill:none; stroke:rgba(255,180,84,.28); stroke-width:1; stroke-dasharray:3 3; }
+  .logo-t{ fill:var(--amber); }
   h1{ font-size:20px; margin:0; letter-spacing:.02em; font-weight:650; }
-  h1 span{ color:var(--ink-faint); font-weight:400; }
-  .tag{ font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); letter-spacing:.06em; text-transform:uppercase; margin-top:2px; }
-  .legend{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); text-align:right; letter-spacing:.04em; }
-  .legend b{ color:var(--amber); font-weight:600; }
-  .legend .c{ color:var(--cyan); }
+  .github-link{ display:grid; place-items:center; width:40px; height:40px; border:1px solid var(--line);
+                border-radius:9px; background:var(--panel); color:var(--ink-dim); transition:.14s; }
+  .github-link:hover{ color:var(--amber); border-color:rgba(255,180,84,.45); background:#1b1f25; transform:translateY(-1px); }
+  .github-link svg{ width:20px; height:20px; }
 
   /* ---------- input ---------- */
-  .inputcard{ position:relative; border:1px solid var(--line); border-radius:var(--r); background:var(--panel);
-              overflow:hidden; }
-  .inputcard .rail{ position:absolute; left:0; top:0; bottom:0; width:3px;
-                    background:linear-gradient(var(--amber), var(--amber-dim)); opacity:.75; }
-  .inputcard label{ display:block; font-family:var(--mono); font-size:11px; letter-spacing:.14em;
-                    text-transform:uppercase; color:var(--ink-faint); padding:12px 16px 0 20px; }
+  .input-card{ position:relative; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+               overflow:hidden; }
+  .accent-rail{ position:absolute; left:0; top:0; bottom:0; width:3px;
+                background:linear-gradient(var(--amber), var(--amber-dim)); opacity:.75; }
+  .input-card label{ display:block; font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+                     text-transform:uppercase; color:var(--ink-faint); padding:12px 16px 0 20px; }
   #input{
     width:100%; min-height:104px; resize:vertical; border:0; outline:0; background:transparent;
     color:var(--ink); font-family:var(--mono); font-size:22px; line-height:1.45; padding:10px 16px 16px 20px;
@@ -84,175 +81,205 @@
   #input::placeholder{ color:var(--ink-faint); }
   .toolbar{ display:flex; gap:8px; flex-wrap:wrap; padding:10px 16px 12px 20px; border-top:1px solid var(--line-soft);
             align-items:center; }
-  .chipbtn{ font-family:var(--mono); font-size:12px; color:var(--ink-dim); background:var(--panel-2);
-            border:1px solid var(--line); padding:5px 10px; border-radius:7px; cursor:pointer; transition:.12s; }
-  .chipbtn:hover{ color:var(--ink); border-color:rgba(255,180,84,.4); background:#1b1f25; }
-  .chipbtn.mut{ color:var(--ink-faint); }
+  .sample-chip{ font-family:var(--mono); font-size:12px; color:var(--ink-dim); background:var(--panel-2);
+                border:1px solid var(--line); padding:5px 10px; border-radius:7px; cursor:pointer; transition:.12s; }
+  .sample-chip:hover{ color:var(--ink); border-color:rgba(255,180,84,.4); background:#1b1f25; }
+  .sample-chip.subtle{ color:var(--ink-faint); }
   .spacer{ flex:1; }
 
-  /* ---------- warnings ---------- */
+  /* ---------- warning banner ---------- */
   #warn{ margin-top:16px; display:none; }
-  #warn.on{ display:block; }
-  .banner{ border:1px solid rgba(240,118,139,.35); background:rgba(240,118,139,.07); border-radius:var(--r);
-           padding:12px 16px; font-size:13.5px; color:#f4b3bd; display:flex; gap:12px; align-items:flex-start; }
-  .banner .ic{ color:var(--rose); font-family:var(--mono); font-weight:700; }
-  .banner b{ color:#ffd7de; }
+  #warn.visible{ display:block; }
+  .warning-banner{ border:1px solid rgba(240,118,139,.35); background:rgba(240,118,139,.07); border-radius:var(--radius);
+                   padding:12px 16px; font-size:13.5px; color:#f4b3bd; display:flex; gap:12px; align-items:flex-start; }
+  .warning-icon{ color:var(--rose); font-family:var(--mono); font-weight:700; }
+  .warning-banner b{ color:#ffd7de; }
 
   /* ---------- stats ---------- */
   .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1px;
-          background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; margin-top:16px; }
+          background:var(--line); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; margin-top:16px; }
   .stat{ background:var(--panel); padding:14px 16px; }
-  .stat .n{ font-family:var(--mono); font-size:25px; font-weight:600; color:var(--amber); line-height:1; }
-  .stat .k{ font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); margin-top:7px; }
+  .stat-value{ font-family:var(--mono); font-size:25px; font-weight:600; color:var(--amber); line-height:1; }
+  .stat-label{ font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); margin-top:7px; }
 
   /* ---------- section scaffolding ---------- */
   section{ margin-top:30px; }
-  .sechead{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; }
-  .sechead h2{ font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim);
-               margin:0; font-weight:600; }
-  .sechead .rule{ flex:1; height:1px; background:var(--line-soft); }
-  .sechead .hint{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+  .section-header{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; }
+  .section-header h2{ font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim);
+                      margin:0; font-weight:600; }
+  .section-divider{ flex:1; height:1px; background:var(--line-soft); }
+  .section-hint{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
 
   /* ---------- grapheme strip ---------- */
-  .strip{ display:flex; flex-wrap:wrap; gap:9px; }
-  .gcell{ position:relative; min-width:58px; border:1px solid var(--line); border-radius:9px; background:var(--panel);
-          padding:10px 8px 8px; cursor:pointer; transition:.12s; text-align:center; }
-  .gcell:hover{ border-color:rgba(255,180,84,.5); background:#1a1e24; transform:translateY(-1px); }
-  .gcell.sel{ border-color:var(--amber); background:#1d2026; box-shadow:0 0 0 1px var(--amber) inset, 0 6px 20px rgba(0,0,0,.4); }
-  .gcell .glyph{ font-family:var(--sans); font-size:30px; line-height:1.15; min-height:38px; color:var(--ink);
-                 display:flex; align-items:center; justify-content:center; }
-  .gcell .idx{ position:absolute; top:4px; left:6px; font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); }
-  .gcell .cpn{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:5px; }
-  .gcell .badge{ position:absolute; top:4px; right:5px; font-family:var(--mono); font-size:9px; color:var(--cyan);
-                 background:rgba(95,201,214,.1); border-radius:4px; padding:1px 4px; }
-  .ghost{ color:var(--ink-faint); font-family:var(--mono); font-size:13px; padding:24px 0; }
-
-  /* placeholder for invisibles */
-  .nonprint{ font-family:var(--mono); font-size:12px; color:var(--rose); }
+  .grapheme-strip{ display:flex; flex-wrap:wrap; gap:9px; }
+  .grapheme-cell{ position:relative; min-width:58px; border:1px solid var(--line); border-radius:9px; background:var(--panel);
+                  padding:10px 8px 8px; cursor:pointer; transition:.12s; text-align:center; }
+  .grapheme-cell:hover{ border-color:rgba(255,180,84,.5); background:#1a1e24; transform:translateY(-1px); }
+  .grapheme-cell.selected{ border-color:var(--amber); background:#1d2026; box-shadow:0 0 0 1px var(--amber) inset, 0 6px 20px rgba(0,0,0,.4); }
+  .grapheme-cell .glyph{ font-family:var(--sans); font-size:30px; line-height:1.15; min-height:38px; color:var(--ink);
+                         display:flex; align-items:center; justify-content:center; }
+  .cell-index{ position:absolute; top:4px; left:6px; font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); }
+  .cell-codepoint{ font-family:var(--mono); font-size:10px; color:var(--ink-faint); margin-top:5px; }
+  .cell-badge{ position:absolute; top:4px; right:5px; font-family:var(--mono); font-size:9px; color:var(--cyan);
+               background:rgba(95,201,214,.1); border-radius:4px; padding:1px 4px; }
+  .nonprint-label{ font-family:var(--mono); font-size:12px; color:var(--rose); }
 
   /* ---------- inspector ---------- */
-  .inspect{ display:grid; grid-template-columns:260px 1fr; gap:18px; }
-  @media (max-width:820px){ .inspect{ grid-template-columns:1fr; } }
+  .inspector-grid{ display:grid; grid-template-columns:260px 1fr; gap:18px; }
+  @media (max-width:820px){
+    .inspector-grid{ grid-template-columns:1fr; }
+    .specimen{ position:static; }   /* don't stick/overlap once stacked */
+  }
 
-  .specimen{ border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden;
+  .specimen{ border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); overflow:hidden;
              align-self:start; position:sticky; top:16px; }
-  .specimen .big{ height:190px; display:grid; place-items:center; font-size:96px; color:var(--ink);
-                  background:
-                    linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/100% 19px,
-                    linear-gradient(90deg,var(--line-soft) 1px, transparent 1px) 0 0/19px 100%,
-                    #101216;
-                  border-bottom:1px solid var(--line); position:relative; word-break:break-all; text-align:center; padding:8px; }
-  .specimen .big .np{ font-family:var(--mono); font-size:15px; color:var(--rose); text-align:center; line-height:1.5; }
-  .specimen .meta{ padding:14px 16px; }
-  .specimen .u{ font-family:var(--mono); font-size:20px; color:var(--amber); }
-  .specimen .nm{ font-size:13px; color:var(--ink); margin-top:6px; line-height:1.4; }
-  .specimen .sub{ font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); margin-top:8px; }
-  .pills{ display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 16px; }
+  .specimen-canvas{ height:190px; display:grid; place-items:center; font-size:96px; color:var(--ink);
+                    background:
+                      linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/100% 19px,
+                      linear-gradient(90deg,var(--line-soft) 1px, transparent 1px) 0 0/19px 100%,
+                      #101216;
+                    border-bottom:1px solid var(--line); position:relative; word-break:break-all; text-align:center; padding:8px; }
+  .nonprint-note{ font-family:var(--mono); font-size:15px; color:var(--rose); text-align:center; line-height:1.5; }
+  .specimen-meta{ padding:14px 16px; }
+  .specimen-codepoint{ font-family:var(--mono); font-size:20px; color:var(--amber); }
+  .specimen-name{ font-size:13px; color:var(--ink); margin-top:6px; line-height:1.4; }
+  .specimen-sub{ font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); margin-top:8px; }
+
+  .pill-row{ display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 16px; }
   .pill{ font-family:var(--mono); font-size:10.5px; padding:3px 8px; border-radius:20px; border:1px solid var(--line);
          color:var(--ink-dim); }
-  .pill.on{ color:#101216; background:var(--cyan); border-color:var(--cyan); font-weight:600; }
-  .pill.amb{ color:#101216; background:var(--amber); border-color:var(--amber); font-weight:600; }
-  .pill.vio{ color:#101216; background:var(--violet); border-color:var(--violet); font-weight:600; }
+  .pill.pill-cyan{ color:#101216; background:var(--cyan); border-color:var(--cyan); font-weight:600; }
+  .pill.pill-amber{ color:#101216; background:var(--amber); border-color:var(--amber); font-weight:600; }
+  .pill.pill-violet{ color:#101216; background:var(--violet); border-color:var(--violet); font-weight:600; }
 
-  /* codepoint selector for multi-cp graphemes */
-  .cpsel{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
-  .cptab{ font-family:var(--mono); font-size:11.5px; color:var(--ink-dim); background:var(--panel-2);
-          border:1px solid var(--line); padding:6px 10px; border-radius:7px; cursor:pointer; display:flex; gap:7px; align-items:center; }
-  .cptab:hover{ border-color:rgba(255,180,84,.4); color:var(--ink); }
-  .cptab.sel{ border-color:var(--amber); color:var(--amber); }
-  .cptab .role{ color:var(--ink-faint); font-size:10px; }
-  .cptab.sel .role{ color:var(--amber-dim); }
+  /* code-point selector for multi-codepoint clusters */
+  .codepoint-tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .codepoint-tabs:empty{ display:none; margin:0; }
+  .codepoint-tab{ font-family:var(--mono); font-size:11.5px; color:var(--ink-dim); background:var(--panel-2);
+                  border:1px solid var(--line); padding:6px 10px; border-radius:7px; cursor:pointer; display:flex; gap:7px; align-items:center; }
+  .codepoint-tab:hover{ border-color:rgba(255,180,84,.4); color:var(--ink); }
+  .codepoint-tab.selected{ border-color:var(--amber); color:var(--amber); }
+  .tab-role{ color:var(--ink-faint); font-size:10px; }
+  .codepoint-tab.selected .tab-role{ color:var(--amber-dim); }
 
-  /* data table */
-  .data{ border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden; }
-  .grp{ border-top:1px solid var(--line-soft); }
-  .grp:first-child{ border-top:0; }
-  .grp .gt{ font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
-            color:var(--amber-dim); padding:10px 16px 4px; }
-  .row{ display:grid; grid-template-columns:170px 1fr; gap:14px; padding:6px 16px; align-items:baseline;
-        cursor:copy; transition:background .1s; }
-  .row:hover{ background:#181c21; }
-  .row:hover .copyhint{ opacity:1; }
-  .row .k{ font-size:12px; color:var(--ink-dim); }
-  .row .v{ font-family:var(--mono); font-size:13px; color:var(--ink); word-break:break-all; position:relative; }
-  .row .v .hl{ color:var(--amber); }
-  .row .v .b{ color:var(--cyan); }
-  .row .v .dim{ color:var(--ink-faint); }
-  .copyhint{ position:absolute; right:0; top:0; font-size:9.5px; color:var(--ink-faint); opacity:0; letter-spacing:.05em;
-             font-family:var(--mono); text-transform:uppercase; }
-  @media (max-width:560px){ .row{ grid-template-columns:1fr; gap:2px; } }
+  /* ---------- detail table ---------- */
+  .detail-table{ border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); overflow:hidden; }
+  .detail-group{ border-top:1px solid var(--line-soft); }
+  .detail-group:first-child{ border-top:0; }
+  .group-title{ font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+                color:var(--amber-dim); padding:10px 16px 4px; }
+  .detail-row{ display:grid; grid-template-columns:170px 1fr; gap:14px; padding:6px 16px; align-items:baseline;
+               transition:background .1s; }
+  .detail-row:hover{ background:#181c21; }
+  .detail-row .field-label{ font-size:12px; color:var(--ink-dim); }
+  .detail-row .field-value{ font-family:var(--mono); font-size:13px; color:var(--ink); word-break:break-all; }
+  .val-accent{ color:var(--amber); }
+  .val-cyan{ color:var(--cyan); }
+  .val-dim{ color:var(--ink-faint); }
+  @media (max-width:560px){ .detail-row{ grid-template-columns:1fr; gap:2px; } }
 
-  /* byte matrix */
-  .bytes{ display:flex; flex-wrap:wrap; gap:7px; padding:4px 16px 14px; }
-  .byte{ border:1px solid var(--line); border-radius:7px; background:#101216; padding:7px 9px; text-align:center; min-width:64px; }
-  .byte .hex{ font-family:var(--mono); font-size:14px; color:var(--amber); }
-  .byte .bin{ font-family:var(--mono); font-size:10px; color:var(--cyan); letter-spacing:.05em; margin-top:3px; }
-  .byte .dec{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); margin-top:2px; }
-  .byte .lbl{ font-family:var(--mono); font-size:8.5px; color:var(--ink-faint); margin-top:4px; text-transform:uppercase; letter-spacing:.06em; }
+  /* value cells that host a copy button */
+  .field-value{ position:relative; padding-right:24px; }
+  .copy-btn{ position:absolute; right:0; top:0; width:20px; height:20px; display:grid; place-items:center;
+             border:0; padding:0; background:transparent; color:var(--ink-faint); cursor:pointer;
+             opacity:0; transition:opacity .12s, color .12s; }
+  .detail-row:hover .copy-btn, .field-row:hover .copy-btn{ opacity:1; }
+  .copy-btn:hover{ color:var(--amber); }
+  .copy-btn.copied{ color:var(--green); opacity:1; }
+  .copy-btn svg{ width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:1.4;
+                 stroke-linecap:round; stroke-linejoin:round; }
 
-  /* string level tools */
-  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-  @media (max-width:820px){ .cols{ grid-template-columns:1fr; } }
-  .card{ border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden; }
-  .card .ch{ font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
-             color:var(--ink-dim); padding:12px 16px; border-bottom:1px solid var(--line-soft); display:flex; justify-content:space-between; }
-  .card .ch .eq{ color:var(--green); text-transform:none; letter-spacing:0; }
-  .card .ch .neq{ color:var(--rose); text-transform:none; letter-spacing:0; }
-  .hexdump{ font-family:var(--mono); font-size:12px; line-height:1.7; padding:12px 16px; overflow-x:auto; white-space:pre;
-            color:var(--ink); }
-  .hexdump .off{ color:var(--ink-faint); }
-  .hexdump .as{ color:var(--cyan); }
-  .kv{ padding:8px 16px 14px; }
-  .kv .row2{ display:grid; grid-template-columns:130px 1fr; gap:12px; padding:5px 0; cursor:copy; align-items:baseline; }
-  .kv .row2:hover{ background:#181c21; }
-  .kv .row2 .k{ font-size:12px; color:var(--ink-dim); }
-  .kv .row2 .v{ font-family:var(--mono); font-size:12.5px; color:var(--ink); word-break:break-all; }
+  /* ---------- info tooltip ---------- */
+  .has-tip{ cursor:help; }             /* no underline — just a help cursor */
+  #tooltip{ position:fixed; z-index:60; max-width:290px; pointer-events:none; opacity:0;
+            transform:translateY(4px); transition:opacity .12s, transform .12s;
+            background:#1c1f25; color:var(--ink); border:1px solid var(--line);
+            box-shadow:0 10px 34px rgba(0,0,0,.55); border-radius:9px; padding:9px 12px;
+            font-family:var(--sans); font-size:12.5px; line-height:1.45; }
+  #tooltip.visible{ opacity:1; transform:translateY(0); }
+  #tooltip::before{ content:""; position:absolute; left:var(--arrow-x,20px); bottom:-5px; width:9px; height:9px;
+                    background:#1c1f25; border-right:1px solid var(--line); border-bottom:1px solid var(--line);
+                    transform:rotate(45deg); }
+  #tooltip.tooltip-below::before{ top:-5px; bottom:auto; border:0; border-left:1px solid var(--line); border-top:1px solid var(--line); }
 
-  footer{ margin-top:46px; padding-top:20px; border-top:1px solid var(--line-soft);
-          font-family:var(--mono); font-size:11px; color:var(--ink-faint); text-align:center; letter-spacing:.04em; }
+  /* ---------- UTF-8 byte matrix ---------- */
+  .byte-grid{ display:flex; flex-wrap:wrap; gap:7px; padding:4px 16px 8px; }
+  .byte-cell{ border:1px solid var(--line); border-radius:7px; background:#101216; padding:7px 9px; text-align:center; min-width:72px; }
+  .byte-hex{ font-family:var(--mono); font-size:14px; color:var(--amber); }
+  .byte-bin{ font-family:var(--mono); font-size:10px; letter-spacing:.05em; margin-top:3px; }
+  .byte-dec{ font-family:var(--mono); font-size:9.5px; color:var(--ink-faint); margin-top:2px; }
+  .byte-label{ font-family:var(--mono); font-size:8.5px; color:var(--ink-faint); margin-top:4px; text-transform:uppercase; letter-spacing:.06em; }
+  .bit-marker{ color:var(--cyan-dim); }            /* UTF-8 structural prefix bits */
+  .bit-data{ color:var(--cyan); font-weight:600; } /* actual code-point payload bits */
+  .byte-legend{ display:flex; gap:16px; padding:0 16px 14px; font-family:var(--mono); font-size:10px; color:var(--ink-faint); }
+  .byte-legend .swatch{ display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .swatch.marker{ background:var(--cyan-dim); }
+  .swatch.data{ background:var(--cyan); }
 
-  /* toast */
-  #toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
-          background:var(--amber); color:#101216; font-family:var(--mono); font-size:12.5px; font-weight:600;
-          padding:9px 16px; border-radius:8px; pointer-events:none; transition:.2s; z-index:50; letter-spacing:.02em; }
-  #toast.on{ opacity:1; transform:translateX(-50%) translateY(0); }
+  /* ---------- string-level cards ---------- */
+  .column-pair{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:820px){ .column-pair{ grid-template-columns:1fr; } }
+  .card{ border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); overflow:hidden; }
+  .card-header{ font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+                color:var(--ink-dim); padding:12px 16px; border-bottom:1px solid var(--line-soft);
+                display:flex; justify-content:space-between; }
+  .status-same{ color:var(--green); text-transform:none; letter-spacing:0; }
+  .status-diff{ color:var(--rose); text-transform:none; letter-spacing:0; }
+  .hex-dump{ font-family:var(--mono); font-size:12px; line-height:1.7; padding:12px 16px; overflow-x:auto; white-space:pre;
+             color:var(--ink); }
+  .dump-dim{ color:var(--ink-faint); }
+  .dump-ascii{ color:var(--cyan); }
+  .field-list{ padding:8px 16px 14px; }
+  .field-row{ display:grid; grid-template-columns:130px 1fr; gap:12px; padding:5px 0; align-items:baseline; }
+  .field-row:hover{ background:#181c21; }
+  .field-row .field-label{ font-size:12px; color:var(--ink-dim); }
+  .field-row .field-value{ font-family:var(--mono); font-size:12.5px; color:var(--ink); word-break:break-all; }
 
   ::selection{ background:rgba(255,180,84,.28); }
-  .empty{ color:var(--ink-faint); font-family:var(--mono); font-size:13px; padding:40px 0; text-align:center; }
+  .empty-state{ color:var(--ink-faint); font-family:var(--mono); font-size:13px; padding:40px 0; text-align:center; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="page">
 
   <header>
     <div class="brand">
-      <div class="mark">T</div>
-      <div>
-        <h1>Text Tool <span>/ character inspector</span></h1>
-        <div class="tag">dissect · decode · demystify</div>
-      </div>
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 44 44">
+          <rect class="logo-frame" x="0.75" y="0.75" width="42.5" height="42.5" rx="9"/>
+          <rect class="logo-dash" x="5.5" y="5.5" width="33" height="33" rx="5"/>
+          <path class="logo-t" d="M14.5 15 H29.5 V18 H23.5 V30 H20.5 V18 H14.5 Z"/>
+        </svg>
+      </span>
+      <div><h1>Text Tool</h1></div>
     </div>
-    <div class="legend">
-      color key — <b>signal value</b> · <span class="c">meta / encoding</span><br>
-      click any row to copy · click a cell to inspect
-    </div>
+    <a class="github-link" href="https://tcboni.github.io/text-tool/" target="_blank" rel="noopener" aria-label="View on GitHub">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
   </header>
 
-  <div class="inputcard">
-    <div class="rail"></div>
+  <div class="input-card">
+    <div class="accent-rail"></div>
     <label for="input">input string</label>
     <textarea id="input" spellcheck="false" autocomplete="off" placeholder="Type or paste anything — a letter, emoji 👩🏽‍🚀, flag 🇯🇵, ligature, or invisible character…"></textarea>
     <div class="toolbar">
-      <button class="chipbtn" data-sample="A">A</button>
-      <button class="chipbtn" data-sample="é">é</button>
-      <button class="chipbtn" data-sample="👩🏽‍🚀">👩🏽‍🚀 astronaut</button>
-      <button class="chipbtn" data-sample="🇯🇵">🇯🇵 flag</button>
-      <button class="chipbtn" data-sample="👨‍👩‍👧‍👦">👨‍👩‍👧‍👦 family</button>
-      <button class="chipbtn" data-sample="ﷺ">ﷺ ligature</button>
-      <button class="chipbtn" data-sample="𝕳">𝕳 math</button>
-      <button class="chipbtn" data-sample="a&#8203;b">zero-width</button>
+      <button class="sample-chip" data-sample="A">A</button>
+      <button class="sample-chip" data-sample="é">é combined</button>
+      <button class="sample-chip" data-sample="e&#769;">é decomposed</button>
+      <button class="sample-chip" data-sample="👩🏽‍🚀">👩🏽‍🚀 astronaut</button>
+      <button class="sample-chip" data-sample="🇯🇵">🇯🇵 flag</button>
+      <button class="sample-chip" data-sample="👨‍👩‍👧‍👦">👨‍👩‍👧‍👦 family</button>
+      <button class="sample-chip" data-sample="ﷺ">ﷺ ligature</button>
+      <button class="sample-chip" data-sample="𝕳">𝕳 math</button>
+      <button class="sample-chip" data-sample="a&#8203;b">zero-width</button>
+      <button class="sample-chip" data-sample="½">½ fraction</button>
+      <button class="sample-chip" data-sample="ｆｕｌｌ">ｆｕｌｌwidth</button>
+      <button class="sample-chip" data-sample="Åström">Åström</button>
+      <button class="sample-chip" data-sample="שלום">שלום rtl</button>
+      <button class="sample-chip" data-sample="invoice&#8238;fdp.pdf">bidi spoof</button>
+      <button class="sample-chip" data-sample="🧑🏻‍🤝‍🧑🏿">🧑🏻‍🤝‍🧑🏿 skin tones</button>
       <span class="spacer"></span>
-      <button class="chipbtn mut" id="clearbtn">clear</button>
+      <button class="sample-chip subtle" id="clearbtn">clear</button>
     </div>
   </div>
 
@@ -261,62 +288,57 @@
   <div class="stats" id="stats"></div>
 
   <section id="graphemeSec">
-    <div class="sechead">
-      <h2>Grapheme Clusters</h2><div class="rule"></div>
-      <span class="hint" id="graphemeHint"></span>
+    <div class="section-header">
+      <h2>Grapheme Clusters</h2><div class="section-divider"></div>
+      <span class="section-hint" id="graphemeHint"></span>
     </div>
-    <div class="strip" id="strip"></div>
+    <div class="grapheme-strip" id="strip"></div>
   </section>
 
   <section id="inspectSec">
-    <div class="sechead">
-      <h2>Inspector</h2><div class="rule"></div>
-      <span class="hint" id="inspectHint"></span>
+    <div class="section-header">
+      <h2>Inspector</h2><div class="section-divider"></div>
+      <span class="section-hint" id="inspectHint"></span>
     </div>
-    <div class="inspect">
+    <div class="inspector-grid">
       <div class="specimen" id="specimen"></div>
       <div>
-        <div class="cpsel" id="cpsel"></div>
-        <div class="data" id="detail"></div>
+        <div class="codepoint-tabs" id="cpsel"></div>
+        <div class="detail-table" id="detail"></div>
       </div>
     </div>
   </section>
 
   <section id="stringSec">
-    <div class="sechead">
-      <h2>String-Level Analysis</h2><div class="rule"></div>
-      <span class="hint">whole input</span>
+    <div class="section-header">
+      <h2>String-Level Analysis</h2><div class="section-divider"></div>
     </div>
-    <div class="cols">
+    <div class="column-pair">
       <div class="card">
-        <div class="ch"><span>UTF-8 hex dump</span><span id="dumpLen"></span></div>
-        <div class="hexdump" id="hexdump"></div>
+        <div class="card-header"><span class="has-tip" data-tip="A byte-by-byte view of the whole string as UTF-8: file offset on the left, raw bytes in the middle, and printable ASCII on the right (non-printables shown as dots).">UTF-8 hex dump</span><span id="dumpLen"></span></div>
+        <div class="hex-dump" id="hexdump"></div>
       </div>
       <div class="card">
-        <div class="ch"><span>encodings & transforms</span></div>
-        <div class="kv" id="strkv"></div>
+        <div class="card-header"><span class="has-tip" data-tip="The entire string re-expressed in the common encodings and literal formats you'd paste into code, URLs, or markup.">encodings &amp; transforms</span></div>
+        <div class="field-list" id="strkv"></div>
       </div>
     </div>
-    <div class="cols" style="margin-top:18px;">
+    <div class="column-pair" style="margin-top:18px;">
       <div class="card">
-        <div class="ch"><span>Unicode normalization</span><span id="normState"></span></div>
-        <div class="kv" id="normkv"></div>
+        <div class="card-header"><span class="has-tip" data-tip="Unicode often has several ways to encode the same visual text (e.g. é as one code point, or as e + a combining accent). Normalization rewrites text into a canonical form so equal-looking strings compare equal.">Unicode normalization</span><span id="normState"></span></div>
+        <div class="field-list" id="normkv"></div>
       </div>
       <div class="card">
-        <div class="ch"><span>segmentation</span></div>
-        <div class="kv" id="segkv"></div>
+        <div class="card-header"><span class="has-tip" data-tip="How the text splits into human-meaningful units — graphemes, words, and sentences — using the browser's Unicode-aware segmenter.">segmentation</span></div>
+        <div class="field-list" id="segkv"></div>
       </div>
     </div>
   </section>
 
-  <div class="empty" id="emptyState">Awaiting input — the instrument is idle.</div>
-
-  <footer>
-    TEXT TOOL · single-file · zero dependencies · everything computed locally in your browser
-  </footer>
+  <div class="empty-state" id="emptyState">Awaiting input — the instrument is idle.</div>
 </div>
 
-<div id="toast">copied</div>
+<div id="tooltip"></div>
 
 <script>
 "use strict";
@@ -455,6 +477,111 @@ const HTML_ENT = {
 };
 
 /* ============================================================
+   TOOLTIP TEXT — plain-English descriptions
+   ============================================================ */
+
+// row-label tooltips (detail table + string-level lists)
+const TIPS = {
+  "Character":"The glyph as it renders. Non-printing characters (spaces, controls, joiners) are labelled instead.",
+  "Name":"The formal name Unicode assigns to this code point.",
+  "Role in cluster":"What job this code point does inside the grapheme — a visible base, an invisible joiner, a modifier, an accent, etc.",
+  "Category":"Unicode General Category: the broad kind of character — letter, number, punctuation, symbol, mark, separator or 'other'.",
+  "Script":"The writing system it belongs to (Latin, Han, Arabic, Cyrillic…). 'Common' means shared across scripts.",
+  "Block":"The named, contiguous range of the Unicode code space this character lives in.",
+  "Unicode":"The code point in standard U+ notation — its unique ID in Unicode, from U+0000 to U+10FFFF.",
+  "Decimal":"The same code point number written in base 10.",
+  "Hexadecimal":"The code point number in base 16 (0x…).",
+  "Octal":"The code point number in base 8 (0o…).",
+  "Binary":"The code point number written out as raw bits (base 2).",
+  "Hex bytes":"The actual bytes stored/transmitted when this character is encoded as UTF-8.",
+  "Escaped":"The UTF-8 bytes written as \\x.. escapes, as you'd embed them in a byte string.",
+  "UTF-16 units":"The 16-bit code units UTF-16 uses. Characters above U+FFFF need two units — a 'surrogate pair'. (JavaScript strings are UTF-16, so this is also the string .length cost.)",
+  "High surrogate":"The first unit of a surrogate pair (range U+D800–U+DBFF).",
+  "Low surrogate":"The second unit of a surrogate pair (range U+DC00–U+DFFF).",
+  "UTF-16 bytes (BE)":"The UTF-16 code units broken into bytes, most-significant first (big-endian).",
+  "UTF-32 (BE)":"The code point stored as a fixed 4-byte value — the simplest fixed-width encoding.",
+  "HTML (decimal)":"HTML numeric character reference using the decimal code point. Works in any HTML document.",
+  "HTML (hex)":"HTML numeric character reference using the hexadecimal code point.",
+  "HTML (named)":"A memorable named HTML entity, where the standard defines one for this character.",
+  "CSS escape":"How to write this character inside a CSS string or identifier.",
+  "JS escape (\\u)":"A JavaScript/JSON string escape. Astral characters are written as a surrogate pair.",
+  "JS escape (ES6)":"The modern ES6 code-point escape — writes the whole character in one \\u{…}.",
+  "Python escape":"How to write this character in a Python string literal.",
+  "URL (percent)":"Percent-encoding of the UTF-8 bytes — the form used in URLs and query strings.",
+  "Base64 (UTF-8)":"The UTF-8 bytes encoded as Base64.",
+  "Uppercase":"The uppercase form of this character (unchanged if it has none).",
+  "Lowercase":"The lowercase form of this character (unchanged if it has none).",
+  "Numeric value":"The numeric value Unicode assigns to this character, if any (e.g. digits, fractions).",
+  "Code points":"Every code point in the string, in order, as U+ values.",
+  "UTF-8 hex":"The whole string encoded as UTF-8 bytes, in hexadecimal.",
+  "UTF-8 Base64":"The whole string's UTF-8 bytes encoded as Base64.",
+  "URL-encoded":"The whole string percent-encoded for safe use in a URL.",
+  "JS string literal":"The string as you'd paste it into JavaScript source, with special characters escaped.",
+  "HTML entities":"The string rewritten using HTML character references so it survives in markup.",
+  "Binary (UTF-8)":"Every UTF-8 byte of the string written out as bits.",
+  "Decimal bytes":"Every UTF-8 byte of the string as base-10 numbers.",
+  "NFC":"Normalization Form C — composes characters into their combined single-code-point form where one exists. This is the recommended form for storing and comparing text.",
+  "NFD":"Normalization Form D — decomposes characters into a base letter plus separate combining marks.",
+  "NFKC":"Normalization Form KC — like NFC, but also replaces compatibility variants (fullwidth, ligatures like ﬁ, ½…) with their plain equivalents.",
+  "NFKD":"Normalization Form KD — like NFD, but also folds those compatibility variants. Useful for search/matching; lossy for display.",
+  "Grapheme count":"Number of user-perceived characters — what a person would call 'one character', even if built from several code points.",
+  "Word segments":"Words detected by the Unicode word-segmentation algorithm.",
+  "Sentences":"Sentences detected by the Unicode sentence-segmentation algorithm.",
+  "Words":"The individual word-like segments found in the text.",
+  "Reversed (graphemes)":"The string reversed by grapheme cluster — so emoji and accented letters stay intact (unlike naive character reversal)."
+};
+
+// detail-group heading tooltips (keyed by base title)
+const GROUP_TIPS = {
+  "Identity":"What this character is — its name, category, script, and where it lives in the Unicode standard.",
+  "Code Point":"The character's single Unicode number, shown in every base.",
+  "UTF-8":"How this character is encoded in UTF-8, the dominant text encoding of the web — 1 to 4 bytes.",
+  "UTF-16 & UTF-32":"Two other encodings: UTF-16 (used internally by JavaScript, Java and Windows) and fixed-width UTF-32.",
+  "References & Escapes":"Ready-to-paste ways to write this character in HTML, CSS, JavaScript, Python, URLs and Base64.",
+  "Case & Numeric":"Upper/lower-case forms of the character and any numeric value Unicode assigns it.",
+  "Properties":"Boolean Unicode properties that are true for this character."
+};
+
+// pill tooltips (property pills + cluster pills)
+const PILL_TIPS = {
+  "ASCII":"In the original 7-bit ASCII range (U+0000–U+007F).",
+  "Printable":"Produces a visible glyph — not a control or invisible character.",
+  "Letter":"A letter in some writing system.",
+  "Alphabetic":"Has the Unicode Alphabetic property (letters plus some marks and numerals).",
+  "Number":"A numeric character.",
+  "Punctuation":"A punctuation character.",
+  "Symbol":"A symbol — mathematical, currency, modifier or other.",
+  "Math":"A mathematical symbol.",
+  "Mark / diacritic":"A combining mark or diacritic that attaches to another character.",
+  "Combining":"Combines with the preceding base character instead of standing on its own.",
+  "Whitespace":"Treated as whitespace.",
+  "Control":"A non-printing control or format character.",
+  "Zero-width":"Occupies no visual width — it is invisible.",
+  "Uppercase":"Has the Uppercase property.",
+  "Lowercase":"Has the Lowercase property.",
+  "Emoji":"Has the Emoji property.",
+  "Emoji presentation":"Defaults to colourful emoji rendering rather than plain text.",
+  "Emoji modifier":"A skin-tone modifier that recolours the preceding emoji.",
+  "Emoji base":"Can accept a skin-tone modifier.",
+  "Pictographic":"An Extended_Pictographic character — an emoji-like picture.",
+  "Bidi control":"Controls left-to-right / right-to-left ordering — invisible, and can be abused to spoof text.",
+  "Dash":"A dash or hyphen character.",
+  "Quotation mark":"A quotation-mark character.",
+  "Hex digit":"Can serve as a hexadecimal digit.",
+  "BMP":"In the Basic Multilingual Plane (U+0000–U+FFFF).",
+  "Astral (>U+FFFF)":"Above the BMP — needs a surrogate pair in UTF-16.",
+  // cluster pills
+  "emoji":"This cluster is an emoji.",
+  "ZWJ sequence":"Several emoji joined by Zero-Width Joiners into a single glyph.",
+  "skin tone":"Includes a skin-tone modifier.",
+  "flag":"A flag built from regional-indicator letters.",
+  "has combining mark":"Includes a combining mark applied to a base character.",
+  "astral":"Includes a character above U+FFFF.",
+  "invisible":"Includes a zero-width / invisible character.",
+  "bidi control":"Includes a text-direction control character."
+};
+
+/* ============================================================
    ENCODING HELPERS
    ============================================================ */
 
@@ -480,6 +607,26 @@ function groupBits(str, size=4){ // pretty-print a bitstring
   const out=[]; for(let i=0;i<str.length;i+=size) out.push(str.slice(i,i+size));
   return out.join(" ");
 }
+// number of leading structural bits in a UTF-8 byte (rest are code-point payload bits)
+function utf8MarkerBits(b){
+  if((b&0x80)===0)    return 1;  // 0xxxxxxx  single/ASCII
+  if((b&0xC0)===0x80) return 2;  // 10xxxxxx  continuation
+  if((b&0xE0)===0xC0) return 3;  // 110xxxxx  2-byte lead
+  if((b&0xF0)===0xE0) return 4;  // 1110xxxx  3-byte lead
+  if((b&0xF8)===0xF0) return 5;  // 11110xxx  4-byte lead
+  return 0;
+}
+// render a byte's 8 bits, colouring structure vs code-point bits
+function binColored(b){
+  const bits = bin(b,8).split("");
+  const marker = utf8MarkerBits(b);
+  let out="";
+  bits.forEach((bit,i)=>{
+    out += '<span class="'+(i<marker?"bit-marker":"bit-data")+'">'+bit+'</span>';
+    if(i===3) out+=" ";
+  });
+  return out;
+}
 
 /* ============================================================
    PER-CODEPOINT PROPERTIES
@@ -502,7 +649,7 @@ function scriptOf(ch){
 function nameOf(cp, ch, cat){
   if(cp in CONTROL_NAMES && cp<=0x9F) return CONTROL_NAMES[cp];
   if(cp in SPECIAL_NAMES) return SPECIAL_NAMES[cp];
-  if(cp>=0x1F3FB && cp<=0x1F3FF) return "EMOJI MODIFIER FITZPATRICK TYPE-"+(cp-0x1F3FB+1)+ (cp-0x1F3FB<2?"-2":cp-0x1F3FB<3?"-3":cp-0x1F3FB<4?"-4":cp-0x1F3FB<5?"-5":"-6");
+  if(cp>=0x1F3FB && cp<=0x1F3FF) return "EMOJI MODIFIER FITZPATRICK TYPE-"+(cp-0x1F3FB<2?"1-2":cp-0x1F3FB<3?"3":cp-0x1F3FB<4?"4":cp-0x1F3FB<5?"5":"6");
   if(cp>=0x1F1E6 && cp<=0x1F1FF) return "REGIONAL INDICATOR SYMBOL LETTER "+String.fromCharCode(65+(cp-0x1F1E6));
   if(cp>=0xE0020 && cp<=0xE007E) return "TAG "+JSON.stringify(String.fromCodePoint(cp-0xE0000));
   if(cp===0xE007F) return "CANCEL TAG";
@@ -568,29 +715,73 @@ function analyzeCodepoint(cp){
 }
 
 /* ============================================================
-   RENDER HELPERS
+   DOM + RENDER HELPERS
    ============================================================ */
 
 const $ = s=>document.querySelector(s);
 const el=(t,c,h)=>{ const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-let toastTimer;
-function copy(text){
-  const done=()=>{ const t=$("#toast"); t.textContent="copied  "+ (text.length>18? text.slice(0,18)+"…":text); t.classList.add("on");
-    clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),1200); };
-  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done,done); }
+const ICON_COPY  = '<svg viewBox="0 0 16 16"><rect x="5" y="5" width="8.5" height="9.5" rx="1.6"/><path d="M3 10.5V3.6A1.6 1.6 0 0 1 4.6 2H10.5"/></svg>';
+const ICON_CHECK = '<svg viewBox="0 0 16 16"><path d="M3.5 8.6l3 3 6-7"/></svg>';
+
+function doCopy(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).catch(()=>{}); }
   else { const ta=el("textarea"); ta.value=text; document.body.appendChild(ta); ta.select();
-         try{document.execCommand("copy");}catch(e){} ta.remove(); done(); }
+         try{ document.execCommand("copy"); }catch(e){} ta.remove(); }
+}
+function copyButton(text){
+  const btn=el("button","copy-btn", ICON_COPY);
+  btn.type="button"; btn.setAttribute("aria-label","Copy value");
+  btn.addEventListener("click", e=>{
+    e.stopPropagation();
+    doCopy(text);
+    btn.innerHTML=ICON_CHECK; btn.classList.add("copied");
+    setTimeout(()=>{ btn.innerHTML=ICON_COPY; btn.classList.remove("copied"); }, 1100);
+  });
+  return btn;
+}
+function attachTip(node, key){
+  if(key && key in TIPS)      { node.classList.add("has-tip"); node.dataset.tip = TIPS[key]; }
 }
 
-function dataRow(k, v, copyVal){
-  const r = el("div","row");
-  r.appendChild(el("div","k",k));
-  r.appendChild(el("div","v", v + '<span class="copyhint">copy</span>'));
-  r.addEventListener("click",()=>copy(copyVal!=null?copyVal:stripTags(v)));
-  return r;
+// a labelled row inside the detail table (with copy + optional tooltip)
+function dataRow(label, valueHtml, copyVal){
+  const row = el("div","detail-row");
+  const lab = el("div","field-label", label);
+  attachTip(lab, label);
+  const val = el("div","field-value", valueHtml);
+  const text = copyVal!=null ? copyVal : val.textContent;
+  val.appendChild(copyButton(text));
+  row.append(lab, val);
+  return row;
 }
-function stripTags(h){ const d=el("div",null,h); return d.textContent; }
+// a labelled row inside a string-level field list
+function kvRow(label, valueHtml, copyVal){
+  const row = el("div","field-row");
+  const lab = el("div","field-label", label);
+  attachTip(lab, label);
+  const val = el("div","field-value", valueHtml);
+  const text = copyVal!=null ? copyVal : val.textContent;
+  val.appendChild(copyButton(text));
+  row.append(lab, val);
+  return row;
+}
+// a detail-table group with a tooltipped heading
+function group(title, tipKey){
+  const g = el("div","detail-group");
+  const head = el("div","group-title", title);
+  const tip = GROUP_TIPS[tipKey!=null?tipKey:title];
+  if(tip){ head.classList.add("has-tip"); head.dataset.tip = tip; }
+  g.appendChild(head);
+  return g;
+}
+// a pill with an optional tooltip
+function pill(label, variant){
+  const p = el("span","pill"+(variant?" "+variant:""), label);
+  if(PILL_TIPS[label]){ p.classList.add("has-tip"); p.dataset.tip = PILL_TIPS[label]; }
+  return p;
+}
 
 /* ============================================================
    STATE + MAIN RENDER
@@ -613,15 +804,12 @@ function render(){
   const empty = str.length===0;
   $("#emptyState").style.display = empty? "block":"none";
   ["#stats","#graphemeSec","#inspectSec","#stringSec"].forEach(s=>{ $(s).style.display = empty?"none":""; });
-  $("#warn").className = "";
-  if(empty){ $("#warn").innerHTML=""; return; }
+  if(empty){ $("#warn").className=""; $("#warn").innerHTML=""; return; }
 
-  // build grapheme model
   const clusters = splitGraphemes(str);
-  graphemes = clusters.map(cluster=>{
-    const cps = [...cluster].map(c=>analyzeCodepoint(c.codePointAt(0)));
-    return { cluster, cps };
-  });
+  graphemes = clusters.map(cluster=>({
+    cluster, cps:[...cluster].map(c=>analyzeCodepoint(c.codePointAt(0)))
+  }));
   if(selGrapheme>=graphemes.length) selGrapheme=0;
 
   renderWarnings(str);
@@ -650,8 +838,8 @@ function renderWarnings(str){
   const seen = new Set(found.map(f=>f[0]));
   const list = [...seen].map(k=>types[k]).join(", ");
   const detail = found.slice(0,8).map(([,a])=>"U+"+hex(a.cp,4)).join(", ");
-  w.className="on";
-  w.innerHTML = '<div class="banner"><span class="ic">⚠</span><div>This string contains <b>'+found.length+
+  w.className="visible";
+  w.innerHTML = '<div class="warning-banner"><span class="warning-icon">⚠</span><div>This string contains <b>'+found.length+
     '</b> hidden or non-printing character'+(found.length>1?'s':'')+' — '+list+'.<br><span style="color:var(--ink-dim);font-family:var(--mono);font-size:12px">'+
     detail+(found.length>8?" …":"")+'</span></div></div>';
 }
@@ -660,48 +848,44 @@ function renderStats(str, clusters){
   const cps = [...str];
   const utf8 = cps.reduce((n,c)=>n+utf8Bytes(c.codePointAt(0)).length,0);
   const utf16 = str.length; // JS string length = UTF-16 code units
-  let words=0, sentences=0;
+  let words;
   if(seg){ words = [...new Intl.Segmenter(undefined,{granularity:"word"}).segment(str)].filter(s=>s.isWordLike).length; }
   else { words = (str.trim().match(/\S+/g)||[]).length; }
   const stats = [
-    [clusters.length, "graphemes"],
-    [cps.length, "code points"],
-    [utf8, "UTF-8 bytes"],
-    [utf16, "UTF-16 units"],
-    [words, "words"],
-    [(str.match(/\n/g)||[]).length+ (str?1:0), "lines"],
+    [clusters.length, "graphemes", "User-perceived characters. One emoji or accented letter counts as one, even when built from several code points."],
+    [cps.length, "code points", "Distinct Unicode scalar values in the string — the count you get iterating with for…of or [...str]."],
+    [utf8, "UTF-8 bytes", "How many bytes the string occupies when stored/sent as UTF-8 (1–4 bytes per code point)."],
+    [utf16, "UTF-16 units", "16-bit code units — this is exactly JavaScript's string .length. Astral characters cost two."],
+    [words, "words", "Word-like segments found by the Unicode word-segmentation algorithm."],
+    [(str.match(/\n/g)||[]).length+ (str?1:0), "lines", "Number of lines (newline count + 1)."],
   ];
-  $("#stats").innerHTML = stats.map(([n,k])=>
-    '<div class="stat"><div class="n">'+n+'</div><div class="k">'+k+'</div></div>').join("");
+  $("#stats").innerHTML = stats.map(([n,k,tip])=>
+    '<div class="stat"><div class="stat-value">'+n+'</div><div class="stat-label"><span class="has-tip" data-tip="'+escapeHtml(tip)+'">'+k+'</span></div></div>').join("");
 }
 
 function displayGlyph(cluster, cps){
-  // decide how to show a cluster in cells / specimen
   const first = cps[0];
   if(cps.length===1 && (first.flags.control || first.flags.zeroWidth || first.cp===0x20 || first.cp===0xA0)){
-    const label = first.name || first.catName;
-    return {html:'<span class="nonprint">'+shortLabel(first)+'</span>', printable:false, label};
+    return {html:'<span class="nonprint-label">'+shortLabel(first)+'</span>', printable:false};
   }
-  return {html: escapeHtml(cluster), printable:true, label:null};
+  return {html: escapeHtml(cluster), printable:true};
 }
 function shortLabel(a){
   const map={0x20:"SP",0xA0:"NBSP",0x09:"TAB",0x0A:"LF",0x0D:"CR",0x200B:"ZWSP",0x200C:"ZWNJ",0x200D:"ZWJ",
     0xFEFF:"BOM",0x2060:"WJ",0xAD:"SHY",0xFE0F:"VS16",0xFE0E:"VS15"};
   return map[a.cp] || (a.cat==="Cc"?"CTRL":"·");
 }
-function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 function renderStrip(){
   const strip=$("#strip"); strip.innerHTML="";
   $("#graphemeHint").textContent = graphemes.length+" cluster"+(graphemes.length>1?"s":"")+" · click to inspect";
   graphemes.forEach((g,i)=>{
-    const cell=el("div","gcell"+(i===selGrapheme?" sel":""));
+    const cell=el("div","grapheme-cell"+(i===selGrapheme?" selected":""));
     const disp=displayGlyph(g.cluster, g.cps);
-    cell.appendChild(el("div","idx", i));
-    if(g.cps.length>1) cell.appendChild(el("div","badge", g.cps.length+"×"));
+    cell.appendChild(el("div","cell-index", i));
+    if(g.cps.length>1) cell.appendChild(el("div","cell-badge", g.cps.length+"×"));
     cell.appendChild(el("div","glyph", disp.html));
-    const cpText = g.cps.length===1? "U+"+hex(g.cps[0].cp,4) : g.cps.length+" code points";
-    cell.appendChild(el("div","cpn", cpText));
+    cell.appendChild(el("div","cell-codepoint", g.cps.length===1? "U+"+hex(g.cps[0].cp,4) : g.cps.length+" code points"));
     cell.addEventListener("click",()=>{ selGrapheme=i; selCp=0; renderStrip(); renderInspector();
       document.querySelector("#inspectSec").scrollIntoView({behavior:"smooth",block:"nearest"}); });
     strip.appendChild(cell);
@@ -713,35 +897,31 @@ function renderInspector(){
   if(!g) return;
   if(selCp>=g.cps.length) selCp=0;
 
-  // specimen (shows the whole cluster)
   const disp = displayGlyph(g.cluster, g.cps);
-  const spec=$("#specimen");
   const bigInner = disp.printable? escapeHtml(g.cluster)
-      : '<div class="np">'+ (g.cps[0].name||g.cps[0].catName) +'<br>«non-printing»</div>';
+      : '<div class="nonprint-note">'+ escapeHtml(g.cps[0].name||g.cps[0].catName) +'<br>«non-printing»</div>';
   const utf8len = g.cps.reduce((n,a)=>n+a.bytes.length,0);
   const utf16len = g.cps.reduce((n,a)=>n+a.units.length,0);
-  spec.innerHTML =
-    '<div class="big">'+bigInner+'</div>'+
-    '<div class="meta">'+
-      '<div class="u">'+ g.cps.map(a=>"U+"+hex(a.cp,4)).join(" ") +'</div>'+
-      '<div class="nm">'+ (g.cps.length>1? "Grapheme cluster of "+g.cps.length+" code points"
-                          : (g.cps[0].name || g.cps[0].catName)) +'</div>'+
-      '<div class="sub">'+ g.cps.length+' code point'+(g.cps.length>1?'s':'')+' · '+utf8len+' UTF-8 bytes · '+utf16len+' UTF-16 units</div>'+
+  $("#specimen").innerHTML =
+    '<div class="specimen-canvas">'+bigInner+'</div>'+
+    '<div class="specimen-meta">'+
+      '<div class="specimen-codepoint">'+ g.cps.map(a=>"U+"+hex(a.cp,4)).join(" ") +'</div>'+
+      '<div class="specimen-name">'+ (g.cps.length>1? "Grapheme cluster of "+g.cps.length+" code points"
+                          : escapeHtml(g.cps[0].name || g.cps[0].catName)) +'</div>'+
+      '<div class="specimen-sub">'+ g.cps.length+' code point'+(g.cps.length>1?'s':'')+' · '+utf8len+' UTF-8 bytes · '+utf16len+' UTF-16 units</div>'+
     '</div>'+
     clusterPills(g);
   $("#inspectHint").textContent = "grapheme "+selGrapheme+ (g.cps.length>1? " · "+g.cps.length+" code points":"");
 
-  // code point selector (only if multi)
   const cpsel=$("#cpsel"); cpsel.innerHTML="";
   if(g.cps.length>1){
     g.cps.forEach((a,i)=>{
-      const t=el("div","cptab"+(i===selCp?" sel":""));
-      t.innerHTML = "U+"+hex(a.cp,4)+' <span class="role">'+a.role+'</span>';
+      const t=el("div","codepoint-tab"+(i===selCp?" selected":""),
+        "U+"+hex(a.cp,4)+' <span class="tab-role">'+a.role+'</span>');
       t.addEventListener("click",()=>{ selCp=i; renderInspector(); });
       cpsel.appendChild(t);
     });
   }
-
   renderDetail(g.cps[selCp]);
 }
 
@@ -758,84 +938,95 @@ function clusterPills(g){
     if(a.flags.bidiControl) set.add("bidi control");
   }
   if(!set.size) return "";
-  const cls={"ZWJ sequence":"vio","flag":"vio","emoji":"amb","skin tone":"amb"};
-  return '<div class="pills">'+[...set].map(s=>'<span class="pill '+(cls[s]||"on")+'">'+s+'</span>').join("")+'</div>';
+  const variant={"ZWJ sequence":"pill-violet","flag":"pill-violet","emoji":"pill-amber","skin tone":"pill-amber"};
+  return '<div class="pill-row">'+[...set].map(s=>{
+    const cls = "pill "+(variant[s]||"pill-cyan")+(PILL_TIPS[s]?" has-tip":"");
+    const tip = PILL_TIPS[s]? ' data-tip="'+escapeHtml(PILL_TIPS[s])+'"':"";
+    return '<span class="'+cls+'"'+tip+'>'+s+'</span>';
+  }).join("")+'</div>';
 }
 
 function renderDetail(a){
   const d=$("#detail"); d.innerHTML="";
   const cp=a.cp;
 
-  // ---- identity ----
-  const g1=el("div","grp"); g1.appendChild(el("div","gt","Identity"));
-  g1.appendChild(dataRow("Character", a.flags.printable? escapeHtml(a.ch): '<span class="dim">'+(a.name||a.catName)+' (non-printing)</span>', a.ch));
-  if(a.name) g1.appendChild(dataRow("Name", a.name, a.name));
-  g1.appendChild(dataRow("Role in cluster", '<span class="b">'+a.role+'</span>', a.role));
-  g1.appendChild(dataRow("Category", a.cat+' <span class="dim">— '+a.catName+'</span>', a.cat));
-  g1.appendChild(dataRow("Script", a.script, a.script));
-  g1.appendChild(dataRow("Block", a.block, a.block));
+  // ---- Identity ----
+  const g1=group("Identity");
+  g1.appendChild(dataRow("Character", a.flags.printable? escapeHtml(a.ch): '<span class="val-dim">'+escapeHtml(a.name||a.catName)+' (non-printing)</span>', a.ch));
+  if(a.name) g1.appendChild(dataRow("Name", escapeHtml(a.name)));
+  g1.appendChild(dataRow("Role in cluster", '<span class="val-cyan">'+a.role+'</span>', a.role));
+  g1.appendChild(dataRow("Category", a.cat+' <span class="val-dim">— '+a.catName+'</span>', a.cat));
+  g1.appendChild(dataRow("Script", a.script));
+  g1.appendChild(dataRow("Block", a.block));
   d.appendChild(g1);
 
-  // ---- code point ----
-  const g2=el("div","grp"); g2.appendChild(el("div","gt","Code Point"));
-  g2.appendChild(dataRow("Unicode", '<span class="hl">U+'+hex(cp,4)+'</span>', "U+"+hex(cp,4)));
-  g2.appendChild(dataRow("Decimal", '<span class="hl">'+cp+'</span>', String(cp)));
+  // ---- Code Point ----
+  const g2=group("Code Point");
+  g2.appendChild(dataRow("Unicode", '<span class="val-accent">U+'+hex(cp,4)+'</span>', "U+"+hex(cp,4)));
+  g2.appendChild(dataRow("Decimal", '<span class="val-accent">'+cp+'</span>', String(cp)));
   g2.appendChild(dataRow("Hexadecimal", "0x"+hex(cp,cp>0xFFFF?6:4), "0x"+hex(cp,cp>0xFFFF?6:4)));
   g2.appendChild(dataRow("Octal", "0o"+oct(cp), "0o"+oct(cp)));
-  g2.appendChild(dataRow("Binary", '<span class="b">'+groupBits(bin(cp, cp>0xFFFF?21:(cp>0xFF?16:8)))+'</span>', bin(cp,8)));
+  g2.appendChild(dataRow("Binary", '<span class="val-cyan">'+groupBits(bin(cp, cp>0xFFFF?21:(cp>0xFF?16:8)))+'</span>', bin(cp,8)));
   d.appendChild(g2);
 
   // ---- UTF-8 ----
-  const g3=el("div","grp"); g3.appendChild(el("div","gt","UTF-8 · "+a.bytes.length+" byte"+(a.bytes.length>1?"s":"")));
-  const bm=el("div","bytes");
+  const g3=group("UTF-8 · "+a.bytes.length+" byte"+(a.bytes.length>1?"s":""), "UTF-8");
+  const grid=el("div","byte-grid");
   a.bytes.forEach((b,i)=>{
-    const c=el("div","byte");
-    c.innerHTML='<div class="hex">'+hex(b,2)+'</div><div class="bin">'+groupBits(bin(b,8))+'</div>'+
-                '<div class="dec">'+b+'</div><div class="lbl">byte '+i+'</div>';
-    c.style.cursor="copy"; c.addEventListener("click",()=>copy(hex(b,2)));
-    bm.appendChild(c);
+    const roleLbl = a.bytes.length===1? "single" : (i===0? "lead" : "cont "+i);
+    grid.appendChild(el("div","byte-cell",
+      '<div class="byte-hex">'+hex(b,2)+'</div>'+
+      '<div class="byte-bin">'+binColored(b)+'</div>'+
+      '<div class="byte-dec">'+b+'</div>'+
+      '<div class="byte-label">'+roleLbl+'</div>'));
   });
-  g3.appendChild(bm);
-  g3.appendChild(dataRow("Hex bytes", a.bytes.map(b=>hex(b,2)).join(" "), a.bytes.map(b=>hex(b,2)).join(" ")));
-  g3.appendChild(dataRow("Escaped", a.bytes.map(b=>"\\x"+hex(b,2).toLowerCase()).join(""), a.bytes.map(b=>"\\x"+hex(b,2).toLowerCase()).join("")));
+  g3.appendChild(grid);
+  g3.appendChild(el("div","byte-legend",
+    '<span><span class="swatch marker"></span>structure bits</span><span><span class="swatch data"></span>code-point bits</span>'));
+  g3.appendChild(dataRow("Hex bytes", a.bytes.map(b=>hex(b,2)).join(" ")));
+  g3.appendChild(dataRow("Escaped", a.bytes.map(b=>"\\x"+hex(b,2).toLowerCase()).join("")));
   d.appendChild(g3);
 
-  // ---- UTF-16 / UTF-32 ----
-  const g4=el("div","grp"); g4.appendChild(el("div","gt","UTF-16 & UTF-32"));
+  // ---- UTF-16 & UTF-32 ----
+  const g4=group("UTF-16 & UTF-32");
   const surro = a.units.length>1;
-  g4.appendChild(dataRow("UTF-16 units", a.units.map(u=>hex(u,4)).join(" ") + (surro?' <span class="dim">(surrogate pair)</span>':' <span class="dim">(BMP, single unit)</span>'), a.units.map(u=>hex(u,4)).join(" ")));
+  g4.appendChild(dataRow("UTF-16 units",
+    a.units.map(u=>hex(u,4)).join(" ") + (surro?' <span class="val-dim">(surrogate pair)</span>':' <span class="val-dim">(BMP, single unit)</span>'),
+    a.units.map(u=>hex(u,4)).join(" ")));
   if(surro){
-    g4.appendChild(dataRow("High surrogate", "0x"+hex(a.units[0],4), "0x"+hex(a.units[0],4)));
-    g4.appendChild(dataRow("Low surrogate", "0x"+hex(a.units[1],4), "0x"+hex(a.units[1],4)));
+    g4.appendChild(dataRow("High surrogate", "0x"+hex(a.units[0],4)));
+    g4.appendChild(dataRow("Low surrogate", "0x"+hex(a.units[1],4)));
   }
-  g4.appendChild(dataRow("UTF-16 bytes (BE)", a.units.map(u=>hex(u>>8,2)+" "+hex(u&0xFF,2)).join(" "), a.units.map(u=>hex(u>>8,2)+hex(u&0xFF,2)).join("")));
-  g4.appendChild(dataRow("UTF-32 (BE)", hex(cp,8), hex(cp,8)));
+  g4.appendChild(dataRow("UTF-16 bytes (BE)", a.units.map(u=>hex(u>>8,2)+" "+hex(u&0xFF,2)).join(" ")));
+  g4.appendChild(dataRow("UTF-32 (BE)", hex(cp,8)));
   d.appendChild(g4);
 
-  // ---- references / escapes ----
-  const g5=el("div","grp"); g5.appendChild(el("div","gt","References & Escapes"));
+  // ---- References & Escapes ----
+  const g5=group("References & Escapes");
   const ent = HTML_ENT[cp];
   g5.appendChild(dataRow("HTML (decimal)", "&amp;#"+cp+";", "&#"+cp+";"));
   g5.appendChild(dataRow("HTML (hex)", "&amp;#x"+hex(cp,cp>0xFFFF?5:4)+";", "&#x"+hex(cp,cp>0xFFFF?5:4)+";"));
   if(ent) g5.appendChild(dataRow("HTML (named)", "&amp;"+ent+";", "&"+ent+";"));
-  g5.appendChild(dataRow("CSS escape", "\\"+hex(cp,cp>0xFFFF?6:4), "\\"+hex(cp,cp>0xFFFF?6:4)));
+  g5.appendChild(dataRow("CSS escape", "\\"+hex(cp,cp>0xFFFF?6:4)));
   const jsEsc = cp<=0xFFFF? "\\u"+hex(cp,4) : a.units.map(u=>"\\u"+hex(u,4)).join("");
-  g5.appendChild(dataRow("JS escape (\\u)", jsEsc, jsEsc));
-  g5.appendChild(dataRow("JS escape (ES6)", "\\u{"+hex(cp,1)+"}", "\\u{"+hex(cp,1)+"}"));
-  g5.appendChild(dataRow("Python escape", cp<=0xFFFF? "\\u"+hex(cp,4): "\\U"+hex(cp,8), cp<=0xFFFF? "\\u"+hex(cp,4): "\\U"+hex(cp,8)));
-  g5.appendChild(dataRow("URL (percent)", a.bytes.map(b=>"%"+hex(b,2)).join(""), a.bytes.map(b=>"%"+hex(b,2)).join("")));
-  g5.appendChild(dataRow("Base64 (UTF-8)", b64(a.bytes), b64(a.bytes)));
+  g5.appendChild(dataRow("JS escape (\\u)", jsEsc));
+  g5.appendChild(dataRow("JS escape (ES6)", "\\u{"+hex(cp,1)+"}"));
+  g5.appendChild(dataRow("Python escape", cp<=0xFFFF? "\\u"+hex(cp,4): "\\U"+hex(cp,8)));
+  g5.appendChild(dataRow("URL (percent)", a.bytes.map(b=>"%"+hex(b,2)).join("")));
+  g5.appendChild(dataRow("Base64 (UTF-8)", b64(a.bytes)));
   d.appendChild(g5);
 
-  // ---- transforms ----
-  const g6=el("div","grp"); g6.appendChild(el("div","gt","Case & Numeric"));
-  g6.appendChild(dataRow("Uppercase", a.upper===a.ch?'<span class="dim">— (same)</span>':escapeHtml(a.upper)+' <span class="dim">U+'+[...a.upper].map(c=>hex(c.codePointAt(0),4)).join(" U+")+'</span>', a.upper));
-  g6.appendChild(dataRow("Lowercase", a.lower===a.ch?'<span class="dim">— (same)</span>':escapeHtml(a.lower)+' <span class="dim">U+'+[...a.lower].map(c=>hex(c.codePointAt(0),4)).join(" U+")+'</span>', a.lower));
-  if(a.numericValue!=null) g6.appendChild(dataRow("Numeric value", String(a.numericValue), String(a.numericValue)));
+  // ---- Case & Numeric ----
+  const g6=group("Case & Numeric");
+  const caseVal = (form)=> escapeHtml(form)+' <span class="val-dim">U+'+[...form].map(c=>hex(c.codePointAt(0),4)).join(" U+")+
+        (form===a.ch?' · unchanged':'')+'</span>';
+  g6.appendChild(dataRow("Uppercase", caseVal(a.upper), a.upper));
+  g6.appendChild(dataRow("Lowercase", caseVal(a.lower), a.lower));
+  if(a.numericValue!=null) g6.appendChild(dataRow("Numeric value", String(a.numericValue)));
   d.appendChild(g6);
 
-  // ---- properties ----
-  const g7=el("div","grp"); g7.appendChild(el("div","gt","Properties"));
+  // ---- Properties ----
+  const g7=group("Properties");
   const F=a.flags;
   const props=[
     ["ASCII",F.ascii],["Printable",F.printable],["Letter",F.letter],["Alphabetic",F.alphabetic],
@@ -847,9 +1038,8 @@ function renderDetail(a){
     ["Dash",F.dash],["Quotation mark",F.quotation],["Hex digit",F.hexDigit],
     ["BMP",F.bmp],["Astral (>U+FFFF)",F.astral]
   ];
-  const pw=el("div","pills"); pw.style.padding="4px 16px 16px";
-  props.forEach(([label,on])=>{ if(on) pw.appendChild(el("span","pill on",label)); });
-  // show a few notable negatives too if nothing much is on
+  const pw=el("div","pill-row"); pw.style.padding="4px 16px 16px";
+  props.forEach(([label,on])=>{ if(on) pw.appendChild(pill(label,"pill-cyan")); });
   if(!pw.children.length) pw.appendChild(el("span","pill","no notable properties"));
   g7.appendChild(pw);
   d.appendChild(g7);
@@ -863,15 +1053,12 @@ function renderStringLevel(str){
   const cps=[...str];
   const bytes=[]; cps.forEach(c=>utf8Bytes(c.codePointAt(0)).forEach(b=>bytes.push(b)));
 
-  // hex dump
   $("#dumpLen").textContent = bytes.length+" bytes";
   $("#hexdump").innerHTML = hexDump(bytes);
 
-  // encodings
   const kv=$("#strkv"); kv.innerHTML="";
-  const allCps = cps.map(c=>"U+"+hex(c.codePointAt(0),4)).join(" ");
   const rows=[
-    ["Code points", allCps],
+    ["Code points", cps.map(c=>"U+"+hex(c.codePointAt(0),4)).join(" ")],
     ["UTF-8 hex", bytes.map(b=>hex(b,2)).join(" ")],
     ["UTF-8 Base64", b64(bytes)],
     ["UTF-16 units", cps.flatMap(c=>utf16Units(c.codePointAt(0))).map(u=>hex(u,4)).join(" ")],
@@ -881,41 +1068,35 @@ function renderStringLevel(str){
     ["Binary (UTF-8)", bytes.map(b=>bin(b,8)).join(" ")],
     ["Decimal bytes", bytes.join(" ")],
   ];
-  rows.forEach(([k,v])=> kv.appendChild(kvRow(k,v)));
+  // escapeHtml the display value (entities/literals show verbatim); copy the raw value
+  rows.forEach(([k,v])=> kv.appendChild(kvRow(k, escapeHtml(v), v)));
 
-  // normalization
   const forms={NFC:str.normalize("NFC"),NFD:str.normalize("NFD"),NFKC:str.normalize("NFKC"),NFKD:str.normalize("NFKD")};
   const allSame = forms.NFC===str && forms.NFD===str && forms.NFKC===str && forms.NFKD===str;
-  $("#normState").innerHTML = allSame? '<span class="eq">already normalized</span>':'<span class="neq">forms differ</span>';
+  $("#normState").innerHTML = allSame? '<span class="status-same">already normalized</span>':'<span class="status-diff">forms differ</span>';
   const nkv=$("#normkv"); nkv.innerHTML="";
   Object.entries(forms).forEach(([name,val])=>{
     const same = val===str;
-    const lenNote = [...val].length+" cp";
-    nkv.appendChild(kvRow(name, (same?'<span style="color:var(--ink-faint)">(unchanged) </span>':'')+escapeHtml(val)+' — '+lenNote, val));
+    nkv.appendChild(kvRow(name,
+      (same?'<span style="color:var(--ink-faint)">(unchanged) </span>':'')+escapeHtml(val)+' <span class="val-dim">— '+[...val].length+' cp</span>',
+      val));
   });
 
-  // segmentation
   const skv=$("#segkv"); skv.innerHTML="";
   if(seg){
     const words=[...new Intl.Segmenter(undefined,{granularity:"word"}).segment(str)];
     const sentences=[...new Intl.Segmenter(undefined,{granularity:"sentence"}).segment(str)];
+    const wordLike = words.filter(w=>w.isWordLike);
     skv.appendChild(kvRow("Grapheme count", String(graphemes.length)));
-    skv.appendChild(kvRow("Word segments", String(words.filter(w=>w.isWordLike).length)+' word-like / '+words.length+' total'));
+    skv.appendChild(kvRow("Word segments", wordLike.length+' word-like / '+words.length+' total'));
     skv.appendChild(kvRow("Sentences", String(sentences.length)));
-    const wl = words.filter(w=>w.isWordLike).map(w=>w.segment).slice(0,20).join(" · ");
-    if(wl) skv.appendChild(kvRow("Words", escapeHtml(wl)+(words.filter(w=>w.isWordLike).length>20?" …":""), words.filter(w=>w.isWordLike).map(w=>w.segment).join(" ")));
+    const wl = wordLike.map(w=>w.segment).slice(0,20).join(" · ");
+    if(wl) skv.appendChild(kvRow("Words", escapeHtml(wl)+(wordLike.length>20?" …":""), wordLike.map(w=>w.segment).join(" ")));
   } else {
     skv.appendChild(kvRow("Segmentation", "Intl.Segmenter not available in this browser"));
   }
-  skv.appendChild(kvRow("Reversed (graphemes)", escapeHtml(graphemes.map(g=>g.cluster).reverse().join("")), graphemes.map(g=>g.cluster).reverse().join("")));
-}
-
-function kvRow(k,v,copyVal){
-  const r=el("div","row2");
-  r.appendChild(el("div","k",k));
-  r.appendChild(el("div","v", v));
-  r.addEventListener("click",()=>copy(copyVal!=null?copyVal:stripTags(v)));
-  return r;
+  const rev = graphemes.map(g=>g.cluster).reverse().join("");
+  skv.appendChild(kvRow("Reversed (graphemes)", escapeHtml(rev), rev));
 }
 
 function jsLiteral(str){
@@ -933,14 +1114,14 @@ function jsLiteral(str){
 }
 
 function hexDump(bytes){
-  if(!bytes.length) return '<span class="off">(empty)</span>';
+  if(!bytes.length) return '<span class="dump-dim">(empty)</span>';
   let out="";
   for(let i=0;i<bytes.length;i+=16){
     const slice=bytes.slice(i,i+16);
-    const off='<span class="off">'+hex(i,8)+'</span>';
+    const off='<span class="dump-dim">'+hex(i,8)+'</span>';
     let h=""; for(let j=0;j<16;j++){ h += j<slice.length? hex(slice[j],2)+" " : "   "; if(j===7) h+=" "; }
-    let asc=""; for(const b of slice){ asc += (b>=0x20&&b<0x7F)? escapeHtml(String.fromCharCode(b)) : '<span class="off">.</span>'; }
-    out += off+"  "+h.trimEnd().padEnd(0)+"  <span class=\"as\">"+asc+"</span>\n";
+    let asc=""; for(const b of slice){ asc += (b>=0x20&&b<0x7F)? escapeHtml(String.fromCharCode(b)) : '<span class="dump-dim">.</span>'; }
+    out += off+"  "+h.trimEnd()+"  <span class=\"dump-ascii\">"+asc+"</span>\n";
   }
   return out.trimEnd();
 }
@@ -951,16 +1132,47 @@ function hexDump(bytes){
 
 $("#input").addEventListener("input", render);
 $("#clearbtn").addEventListener("click", ()=>{ $("#input").value=""; selGrapheme=0; selCp=0; render(); $("#input").focus(); });
-document.querySelectorAll(".chipbtn[data-sample]").forEach(b=>{
+document.querySelectorAll(".sample-chip[data-sample]").forEach(b=>{
   b.addEventListener("click", ()=>{
-    // decode any HTML entity in the sample (for the zero-width one)
+    // decode any HTML entity in the sample (for the zero-width / bidi ones)
     const tmp=el("textarea"); tmp.innerHTML=b.dataset.sample;
     $("#input").value = tmp.value; selGrapheme=0; selCp=0; render(); $("#input").focus();
   });
 });
 
+/* ---- info tooltip engine (event-delegated, escapes clipping containers) ---- */
+(function(){
+  const tt=$("#tooltip");
+  let cur=null;
+  function place(target){
+    tt.textContent = target.dataset.tip;
+    tt.classList.remove("tooltip-below");
+    tt.style.left="-9999px"; tt.style.top="0"; tt.classList.add("visible"); // measure
+    const tr=target.getBoundingClientRect();
+    const tw=tt.offsetWidth, th=tt.offsetHeight, m=8;
+    let left = tr.left + tr.width/2 - tw/2;
+    left = Math.max(m, Math.min(left, window.innerWidth - tw - m));
+    let top = tr.top - th - 10;
+    let below=false;
+    if(top < m){ top = tr.bottom + 10; below=true; }
+    tt.classList.toggle("tooltip-below", below);
+    const arrowX = Math.max(12, Math.min(tw-12, tr.left + tr.width/2 - left));
+    tt.style.setProperty("--arrow-x", (arrowX-4)+"px");
+    tt.style.left = left+"px"; tt.style.top = top+"px";
+  }
+  document.addEventListener("mouseover", e=>{
+    const t = e.target.closest && e.target.closest("[data-tip]");
+    if(t && t!==cur){ cur=t; place(t); }
+  });
+  document.addEventListener("mouseout", e=>{
+    const t = e.target.closest && e.target.closest("[data-tip]");
+    if(t && t===cur){ cur=null; tt.classList.remove("visible"); }
+  });
+  window.addEventListener("scroll", ()=>{ if(cur) place(cur); }, true);
+})();
+
 // initial demo
-$("#input").value = "Hé👩🏽‍🚀";
+$("#input").value = "👋";
 render();
 </script>
 </body>
