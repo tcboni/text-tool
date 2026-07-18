@@ -126,13 +126,12 @@
 
   /* ---------- inspector ---------- */
   .inspector-grid{ display:grid; grid-template-columns:260px 1fr; gap:18px; }
-  @media (max-width:820px){
-    .inspector-grid{ grid-template-columns:1fr; }
-    .specimen{ position:static; }   /* don't stick/overlap once stacked */
-  }
+  @media (max-width:820px){ .inspector-grid{ grid-template-columns:1fr; } }
 
   .specimen{ border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); overflow:hidden;
-             align-self:start; position:sticky; top:16px; }
+             align-self:start; }
+  /* only stick in the two-column layout; static once stacked so it can't overlap */
+  @media (min-width:821px){ .specimen{ position:sticky; top:16px; } }
   .specimen-canvas{ height:190px; display:grid; place-items:center; font-size:96px; color:var(--ink);
                     background:
                       linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/100% 19px,
