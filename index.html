@@ -1955,6 +1955,7 @@
       let graphemes = []; // array of {cluster, cps:[analysis...]}
       let selGrapheme = 0;
       let selCp = 0;
+      let _dumpBytes = []; // last string's UTF-8 bytes, for reflowing the hex dump on resize
 
       const seg = typeof Intl !== "undefined" && Intl.Segmenter;
 
@@ -2709,7 +2710,8 @@
         );
 
         $("#dumpLen").textContent = bytes.length + " bytes";
-        $("#hexdump").innerHTML = hexDump(bytes);
+        _dumpBytes = bytes;
+        $("#hexdump").innerHTML = hexDump(bytes, pickHexPerRow());
 
         const kv = $("#strkv");
         kv.innerHTML = "";
@@ -2843,16 +2845,45 @@
         return out + '"';
       }
 
-      function hexDump(bytes) {
+      // widest number of bytes per row (16 / 8 / 4) that fits the panel
+      // without overflowing — keeps the dump aligned instead of scrolling
+      function pickHexPerRow() {
+        const host = $("#hexdump");
+        if (!host) return 16;
+        const cs = getComputedStyle(host);
+        const avail =
+          host.clientWidth -
+          parseFloat(cs.paddingLeft) -
+          parseFloat(cs.paddingRight);
+        if (!avail) return 16;
+        const probe = document.createElement("span");
+        probe.style.cssText =
+          "position:absolute;visibility:hidden;white-space:pre;font-family:" +
+          cs.fontFamily +
+          ";font-size:" +
+          cs.fontSize;
+        probe.textContent = "0".repeat(100);
+        host.appendChild(probe);
+        const charW = probe.getBoundingClientRect().width / 100;
+        probe.remove();
+        // per row: offset(8) + "  " + n*3-1 hex chars (+1 mid-gap if n>8) + "  " + n ascii
+        const rowW = (n) =>
+          (8 + 2 + (n * 3 - 1) + (n > 8 ? 1 : 0) + 2 + n) * charW;
+        for (const n of [16, 8, 4]) if (rowW(n) <= avail) return n;
+        return 4;
+      }
+      function hexDump(bytes, perRow) {
         if (!bytes.length) return '<span class="dump-dim">(empty)</span>';
+        const n = perRow || 16;
+        const gap = n > 8 ? n / 2 - 1 : -1; // index after which to add a mid-gap
         let out = "";
-        for (let i = 0; i < bytes.length; i += 16) {
-          const slice = bytes.slice(i, i + 16);
+        for (let i = 0; i < bytes.length; i += n) {
+          const slice = bytes.slice(i, i + n);
           const off = '<span class="dump-dim">' + hex(i, 8) + "</span>";
           let h = "";
-          for (let j = 0; j < 16; j++) {
+          for (let j = 0; j < n; j++) {
             h += j < slice.length ? hex(slice[j], 2) + " " : "   ";
-            if (j === 7) h += " ";
+            if (j === gap) h += " ";
           }
           let asc = "";
           for (const b of slice) {
@@ -2876,12 +2907,54 @@
    WIRING
    ============================================================ */
 
-      $("#input").addEventListener("input", render);
+      /* ---- persistence: mirror the input to the URL hash + localStorage ---- */
+      const STORE_KEY = "text-tool:input";
+      let _hashTimer = null;
+      function persist(str) {
+        try {
+          localStorage.setItem(STORE_KEY, str);
+        } catch (e) {}
+        // debounced so rapid typing doesn't hit browser replaceState rate limits;
+        // replaceState (not location.hash) avoids spamming the back-button history
+        clearTimeout(_hashTimer);
+        _hashTimer = setTimeout(() => {
+          try {
+            const url = str
+              ? "#" + encodeURIComponent(str)
+              : location.pathname + location.search;
+            history.replaceState(null, "", url);
+          } catch (e) {}
+        }, 120);
+      }
+      function readHash() {
+        if (location.hash.length <= 1) return null;
+        const raw = location.hash.slice(1);
+        try {
+          return decodeURIComponent(raw);
+        } catch (e) {
+          return raw;
+        }
+      }
+
+      $("#input").addEventListener("input", () => {
+        render();
+        persist($("#input").value);
+      });
+      // reflow the hex dump (bytes-per-row) when the panel width changes
+      let _dumpResizeTimer = null;
+      window.addEventListener("resize", () => {
+        clearTimeout(_dumpResizeTimer);
+        _dumpResizeTimer = setTimeout(() => {
+          if (_dumpBytes.length)
+            $("#hexdump").innerHTML = hexDump(_dumpBytes, pickHexPerRow());
+        }, 120);
+      });
       $("#clearbtn").addEventListener("click", () => {
         $("#input").value = "";
         selGrapheme = 0;
         selCp = 0;
         render();
+        persist("");
         $("#input").focus();
       });
       document.querySelectorAll(".sample-chip[data-sample]").forEach((b) => {
@@ -2893,8 +2966,22 @@
           selGrapheme = 0;
           selCp = 0;
           render();
+          persist(tmp.value);
           $("#input").focus();
         });
+      });
+      // keep in sync with back/forward navigation and shared #-links
+      window.addEventListener("hashchange", () => {
+        const h = readHash();
+        if (h != null && h !== $("#input").value) {
+          $("#input").value = h;
+          selGrapheme = 0;
+          selCp = 0;
+          render();
+          try {
+            localStorage.setItem(STORE_KEY, h);
+          } catch (e) {}
+        }
       });
 
       /* ---- info tooltip engine (event-delegated, escapes clipping containers) ---- */
@@ -2951,9 +3038,26 @@
         );
       })();
 
-      // initial demo
-      $("#input").value = "👋";
-      render();
+      // restore prior input: URL hash first (shareable links), then
+      // localStorage, falling back to the demo only on a first-ever visit
+      (function () {
+        let init = readHash();
+        let restored = init != null;
+        if (init == null) {
+          try {
+            const saved = localStorage.getItem(STORE_KEY);
+            if (saved != null) {
+              init = saved;
+              restored = true;
+            }
+          } catch (e) {}
+        }
+        if (init == null) init = "👋"; // first visit demo
+        $("#input").value = init;
+        render();
+        // sync hash + storage for restored content, but leave the demo's URL clean
+        if (restored) persist(init);
+      })();
     </script>
   </body>
 </html>
