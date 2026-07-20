@@ -928,13 +928,14 @@
         ></textarea>
         <div class="toolbar">
           <button class="sample-chip" data-sample="A">A</button>
-          <button class="sample-chip" data-sample="é">é combined</button>
-          <button class="sample-chip" data-sample="e&#769;">
-            é decomposed
-          </button>
           <button class="sample-chip" data-sample="👩🏽‍🚀">👩🏽‍🚀 astronaut</button>
-          <button class="sample-chip" data-sample="🇯🇵">🇯🇵 flag</button>
+          <button class="sample-chip" data-sample="🇦🇷">🇦🇷 flag</button>
           <button class="sample-chip" data-sample="👨‍👩‍👧‍👦">👨‍👩‍👧‍👦 family</button>
+          <button class="sample-chip" data-sample="🧑🏻‍🤝‍🧑🏿">🧑🏻‍🤝‍🧑🏿 skin tones</button>
+          <button class="sample-chip" data-sample="é">é (combined)</button>
+          <button class="sample-chip" data-sample="e&#769;">
+            é (decomposed)
+          </button>
           <button class="sample-chip" data-sample="ﷺ">ﷺ ligature</button>
           <button class="sample-chip" data-sample="𝕳">𝕳 math</button>
           <button class="sample-chip" data-sample="a&#8203;b">
@@ -949,7 +950,6 @@
           <button class="sample-chip" data-sample="invoice&#8238;fdp.pdf">
             bidi spoof
           </button>
-          <button class="sample-chip" data-sample="🧑🏻‍🤝‍🧑🏿">🧑🏻‍🤝‍🧑🏿 skin tones</button>
           <span class="spacer"></span>
           <button class="sample-chip subtle" id="clearbtn">clear</button>
         </div>
@@ -2423,7 +2423,8 @@
           const key = (arr) =>
             arr.map((cp) => cp.toString(16).toUpperCase()).join("-");
           const label =
-            labels.get(key(cps)) || labels.get(key(cps.filter((cp) => cp !== 0xfe0f)));
+            labels.get(key(cps)) ||
+            labels.get(key(cps.filter((cp) => cp !== 0xfe0f)));
           if (!label) return; // no clean name (skin-tone/ZWJ combos) → stay hidden
           const folder = label.charAt(0).toUpperCase() + label.slice(1);
           const base = label
