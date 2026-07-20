@@ -1538,24 +1538,6 @@
           "The string reversed by grapheme cluster — so emoji and accented letters stay intact (unlike naive character reversal).",
       };
 
-      // detail-group heading tooltips (keyed by base title)
-      const GROUP_TIPS = {
-        Identity:
-          "What this character is — its name, category, script, and where it lives in the Unicode standard.",
-        "Code Point":
-          "The character's single Unicode number, shown in every base.",
-        "UTF-8":
-          "How this character is encoded in UTF-8, the dominant text encoding of the web — 1 to 4 bytes.",
-        "UTF-16 & UTF-32":
-          "Two other encodings: UTF-16 (used internally by JavaScript, Java and Windows) and fixed-width UTF-32.",
-        "References & Escapes":
-          "Ready-to-paste ways to write this character in HTML, CSS, JavaScript, Python, URLs and Base64.",
-        "Case & Numeric":
-          "Upper/lower-case forms of the character and any numeric value Unicode assigns it.",
-        Properties:
-          "Boolean Unicode properties that are true for this character.",
-      };
-
       // pill tooltips (property pills + cluster pills)
       const PILL_TIPS = {
         ASCII: "In the original 7-bit ASCII range (U+0000–U+007F).",
@@ -1904,14 +1886,9 @@
         return row;
       }
       // a detail-table group with a tooltipped heading
-      function group(title, tipKey) {
+      function group(title) {
         const g = el("div", "detail-group");
         const head = el("div", "group-title", title);
-        const tip = GROUP_TIPS[tipKey != null ? tipKey : title];
-        if (tip) {
-          head.classList.add("has-tip");
-          head.dataset.tip = tip;
-        }
         g.appendChild(head);
         return g;
       }
@@ -2336,7 +2313,6 @@
             a.bytes.length +
             " byte" +
             (a.bytes.length > 1 ? "s" : ""),
-          "UTF-8",
         );
         const grid = el("div", "byte-grid");
         a.bytes.forEach((b, i) => {
