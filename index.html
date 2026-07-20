@@ -477,6 +477,52 @@
         font-weight: 600;
       }
 
+      /* per-platform emoji renderings */
+      .emoji-variants {
+        border-top: 1px solid var(--line);
+        padding: 14px 16px 16px;
+      }
+      .emoji-variants:empty {
+        display: none;
+      }
+      .emoji-variants-head {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        margin-bottom: 12px;
+      }
+      .emoji-variant-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+        gap: 10px;
+      }
+      .emoji-variant {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        text-align: center;
+      }
+      .emoji-variant img {
+        width: 44px;
+        height: 44px;
+        image-rendering: auto;
+      }
+      .emoji-variant-name {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-dim);
+        line-height: 1.2;
+      }
+      .emoji-variant-sub {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--ink-faint);
+        line-height: 1.2;
+      }
+
       /* code-point selector for multi-codepoint clusters */
       .codepoint-tabs {
         display: flex;
@@ -2169,7 +2215,10 @@
           utf16len +
           " UTF-16 units</div>" +
           "</div>" +
-          clusterPills(g);
+          clusterPills(g) +
+          emojiVariants(g);
+        _variantToken++;
+        if (isEmojiCluster(g)) resolveMicrosoft(g.cluster, _variantToken);
         $("#inspectHint").textContent =
           "grapheme " +
           selGrapheme +
@@ -2233,6 +2282,173 @@
             .join("") +
           "</div>"
         );
+      }
+
+      // is this cluster an emoji worth showing platform renderings for?
+      // (excludes bare ASCII digits/#/* which carry the Emoji property but
+      // only render as emoji with an explicit VS16 / keycap)
+      function isEmojiCluster(g) {
+        return g.cps.some(
+          (a) =>
+            (a.cp >= 0x1f1e6 && a.cp <= 0x1f1ff) || // regional-indicator flag
+            a.cp === 0xfe0f || // explicit emoji presentation
+            a.flags.emojiPresentation || // defaults to emoji
+            a.flags.emojiModifier, // skin-tone modifier
+        );
+      }
+
+      // Per-platform emoji artwork, keyed by the cluster's codepoint sequence.
+      // Each vendor exposes a codepoint-addressable image feed on a public CDN;
+      // `url(code)` builds the URL and `up` marks vendors that use UPPERCASE
+      // hex filenames. Every image tries the raw sequence first, then a copy
+      // with VS16 (FE0F) stripped, then hides itself — so missing artwork just
+      // drops out of the grid.  (Samsung / WhatsApp have no such public feed.)
+      const dsUrl = (v) => (code) =>
+        "https://cdn.jsdelivr.net/npm/emoji-datasource-" +
+        v +
+        "/img/" +
+        v +
+        "/64/" +
+        code +
+        ".png";
+      const EMOJI_VENDORS = [
+        { label: "Apple", sub: "iOS · macOS", url: dsUrl("apple") },
+        { label: "Google", sub: "Android · Noto", url: dsUrl("google") },
+        { label: "Facebook", sub: "Messenger", url: dsUrl("facebook") },
+        { label: "Twitter", sub: "Twemoji · X", url: dsUrl("twitter") },
+        {
+          label: "JoyPixels",
+          sub: "Discord-era",
+          url: (c) =>
+            "https://cdn.jsdelivr.net/joypixels/assets/8.0/png/unicode/64/" +
+            c +
+            ".png",
+        },
+        {
+          label: "OpenMoji",
+          sub: "Open source",
+          up: true,
+          url: (c) =>
+            "https://cdn.jsdelivr.net/gh/hfg-gmuend/openmoji@master/color/72x72/" +
+            c +
+            ".png",
+        },
+      ];
+      function emojiCodeSeq(cluster, stripVS, upper) {
+        return [...cluster]
+          .map((c) => c.codePointAt(0))
+          .filter((cp) => !(stripVS && cp === 0xfe0f))
+          .map((cp) => cp.toString(16))
+          .join("-")
+          [upper ? "toUpperCase" : "toLowerCase"]();
+      }
+      function emojiVariants(g) {
+        if (!isEmojiCluster(g)) return "";
+        const cells = EMOJI_VENDORS.map((v) => {
+          const full = emojiCodeSeq(g.cluster, false, v.up);
+          const bare = emojiCodeSeq(g.cluster, true, v.up); // VS16 stripped
+          const hide = "this.closest('.emoji-variant').style.display='none'";
+          // try full sequence, fall back to FE0F-stripped, then hide the cell
+          const onerror =
+            bare !== full
+              ? "if(this.dataset.f){" +
+                hide +
+                "}else{this.dataset.f=1;this.src='" +
+                v.url(bare) +
+                "'}"
+              : hide;
+          return (
+            '<div class="emoji-variant">' +
+            '<img loading="lazy" alt="' +
+            escapeHtml(v.label) +
+            ' rendering" src="' +
+            v.url(full) +
+            '" onerror="' +
+            onerror +
+            '">' +
+            '<div class="emoji-variant-name">' +
+            v.label +
+            "</div>" +
+            '<div class="emoji-variant-sub">' +
+            v.sub +
+            "</div>" +
+            "</div>"
+          );
+        }).join("");
+        // Microsoft (Fluent) is name-keyed, so it's resolved asynchronously
+        // after render (see resolveMicrosoft); starts hidden until artwork loads.
+        const ms =
+          '<div class="emoji-variant" id="msVariant" style="display:none">' +
+          '<img loading="lazy" alt="Microsoft rendering">' +
+          '<div class="emoji-variant-name">Microsoft</div>' +
+          '<div class="emoji-variant-sub">Fluent · Windows</div>' +
+          "</div>";
+        return (
+          '<div class="emoji-variants">' +
+          '<div class="emoji-variants-head">Platform renderings</div>' +
+          '<div class="emoji-variant-grid">' +
+          cells +
+          ms +
+          "</div></div>"
+        );
+      }
+
+      // Microsoft's Fluent emoji are stored by CLDR name, not codepoint, so we
+      // need a codepoint→label map. emojibase's compact dataset provides it;
+      // it's fetched lazily (once) the first time an emoji is inspected.
+      let _emojiLabels = null;
+      let _emojiLabelsPromise = null;
+      function loadEmojiLabels() {
+        if (_emojiLabels) return Promise.resolve(_emojiLabels);
+        if (_emojiLabelsPromise) return _emojiLabelsPromise;
+        _emojiLabelsPromise = fetch(
+          "https://cdn.jsdelivr.net/npm/emojibase-data@latest/en/compact.json",
+        )
+          .then((r) => r.json())
+          .then((list) => {
+            _emojiLabels = new Map(list.map((e) => [e.hexcode, e.label]));
+            return _emojiLabels;
+          })
+          .catch(() => (_emojiLabels = new Map()));
+        return _emojiLabelsPromise;
+      }
+      let _variantToken = 0; // invalidates in-flight lookups when selection changes
+      function resolveMicrosoft(cluster, token) {
+        loadEmojiLabels().then((labels) => {
+          if (token !== _variantToken) return; // selection moved on
+          const cell = $("#msVariant");
+          if (!cell) return;
+          const cps = [...cluster].map((c) => c.codePointAt(0));
+          const key = (arr) =>
+            arr.map((cp) => cp.toString(16).toUpperCase()).join("-");
+          const label =
+            labels.get(key(cps)) || labels.get(key(cps.filter((cp) => cp !== 0xfe0f)));
+          if (!label) return; // no clean name (skin-tone/ZWJ combos) → stay hidden
+          const folder = label.charAt(0).toUpperCase() + label.slice(1);
+          const base = label
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "");
+          const root =
+            "https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/" +
+            encodeURIComponent(folder);
+          // plain emoji live under 3D/…; skin-tone-capable ones nest a Default/
+          const candidates = [
+            root + "/3D/" + base + "_3d.png",
+            root + "/Default/3D/" + base + "_3d_default.png",
+            root + "/Color/" + base + "_color.svg",
+            root + "/Default/Color/" + base + "_color_default.svg",
+          ];
+          const img = cell.querySelector("img");
+          let i = 0;
+          img.onload = () => {
+            if (token === _variantToken) cell.style.display = "";
+          };
+          img.onerror = () => {
+            if (i < candidates.length) img.src = candidates[i++];
+          };
+          img.src = candidates[i++];
+        });
       }
 
       function renderDetail(a) {
