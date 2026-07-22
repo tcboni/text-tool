@@ -248,8 +248,17 @@
       .sample-chip.subtle {
         color: var(--ink-faint);
       }
-      .spacer {
-        flex: 1;
+      /* extra chips hide until the "+N more" expander is clicked */
+      .toolbar:not(.expanded) .sample-chip.extra {
+        display: none;
+      }
+      .toolbar-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        margin-right: 4px;
       }
 
       /* ---------- warning banner ---------- */
@@ -1027,31 +1036,91 @@
           placeholder="Type or paste anything — a letter, emoji 👩🏽‍🚀, flag 🇯🇵, ligature, or invisible character…"
         ></textarea>
         <div class="toolbar">
+          <span class="toolbar-label">examples</span>
           <button class="sample-chip" data-sample="A">A</button>
           <button class="sample-chip" data-sample="👩🏽‍🚀">👩🏽‍🚀 astronaut</button>
           <button class="sample-chip" data-sample="🇦🇷">🇦🇷 flag</button>
           <button class="sample-chip" data-sample="👨‍👩‍👧‍👦">👨‍👩‍👧‍👦 family</button>
           <button class="sample-chip" data-sample="🧑🏻‍🤝‍🧑🏿">🧑🏻‍🤝‍🧑🏿 skin tones</button>
-          <button class="sample-chip" data-sample="é">é (combined)</button>
-          <button class="sample-chip" data-sample="e&#769;">
+          <button
+            class="sample-chip"
+            data-sample="ζ(𝑠) = ∑ₙ₌₁ 𝑛⁻ˢ = ∏ₚ (1−𝑝⁻ˢ)⁻¹"
+          >
+            ∑ math
+          </button>
+          <button class="sample-chip extra" data-sample="e&#769;">
             é (decomposed)
           </button>
-          <button class="sample-chip" data-sample="ﷺ">ﷺ ligature</button>
-          <button class="sample-chip" data-sample="𝕳">𝕳 math</button>
-          <button class="sample-chip" data-sample="a&#8203;b">
-            zero-width
-          </button>
-          <button class="sample-chip" data-sample="½">½ fraction</button>
-          <button class="sample-chip" data-sample="ｆｕｌｌ">
-            ｆｕｌｌwidth
-          </button>
-          <button class="sample-chip" data-sample="Åström">Åström</button>
-          <button class="sample-chip" data-sample="שלום">שלום rtl</button>
-          <button class="sample-chip" data-sample="invoice&#8238;fdp.pdf">
+          <button class="sample-chip extra" data-sample="invoice&#8238;fdp.exe">
             bidi spoof
           </button>
-          <span class="spacer"></span>
-          <button class="sample-chip subtle" id="clearbtn">clear</button>
+          <button class="sample-chip extra" data-sample="1&#65039;&#8419;">
+            1&#65039;&#8419; keycap
+          </button>
+          <button class="sample-chip extra" data-sample="é">é (combined)</button>
+          <button
+            class="sample-chip extra"
+            data-sample="z&#820;&#769;&#790;a&#820;&#770;&#816;l&#820;&#768;&#807;g&#820;&#771;&#785;o&#820;&#772;&#803;"
+          >
+            zalgo
+          </button>
+          <button class="sample-chip extra" data-sample="a&#8203;b">
+            zero-width
+          </button>
+          <button class="sample-chip extra" data-sample="½">½ fraction</button>
+          <button class="sample-chip extra" data-sample="ﬁﬂﬃﬆæœĳ">
+            ﬁﬂﬆ ligatures
+          </button>
+          <button class="sample-chip extra" data-sample="ｆｕｌｌ">
+            ｆｕｌｌwidth
+          </button>
+          <button
+            class="sample-chip extra"
+            data-sample="┌─┬─┐&#10;│▓│░│&#10;├─┼─┤&#10;└─┴─┘"
+          >
+            ┌┼┐ box drawing
+          </button>
+          <button class="sample-chip extra" data-sample="Åström">Åström</button>
+          <button class="sample-chip extra" data-sample="한글漢字">
+            한글漢字 cjk
+          </button>
+          <button
+            class="sample-chip extra"
+            data-sample="🐸🐵🐒🦍🦧🐶🐕🦮🐕‍🦺🐩🐺🦊🦝🐱🐈🐈‍⬛🦁🐯🐅🐆🐴🐎🦄🦓🦌🦬🐮🐂🐃🐄🐷🐖🐗🐏🐑🐐🐪🐫🦙🦒🐘🦣🦏🦛🐭🐁🐀🐹🐰🐇🐿️🦫🦔🦇🐻🐻‍❄️🐨🐼🦥🦦🦨🦘🦡🫏🐔🐓🐣🐤🐥🐦🐦‍⬛🐧🕊️🦅🦆🦢🦉🦤🦩🦚🦜🪿🐦‍🔥🐊🐢🦎🐍🐲🐉🦕🦖🐳🐋🐬🦭🐟🐠🐡🦈🐙🦀🦞🦐🦑🪼🐚🐌🦋🐛🐜🐝🪲🐞🦗🪳🕷️🦂🦟🪰🪱"
+          >
+            🐸🦊🐙 animals
+          </button>
+          <button
+            class="sample-chip extra"
+            data-sample="abc &#8295;אבג 123&#8297; xyz"
+          >
+            ⇄ bidi controls
+          </button>
+          <button
+            class="sample-chip extra"
+            data-sample="a&#9;b&#7;c&#27;d&#4;"
+          >
+            ␛ controls
+          </button>
+          <button class="sample-chip extra" data-sample="⠃⠗⠁⠊⠇⠇⠑">
+            ⠃⠗ braille
+          </button>
+          <button class="sample-chip extra" data-sample="ᚠᚢᚦᚨᚱᚲ">
+            ᚠᚢᚦ runes
+          </button>
+          <button class="sample-chip extra" data-sample="𝄞𝅗𝅥♩♪♫𝄢">
+            𝄞 music
+          </button>
+          <button class="sample-chip extra" data-sample="&#1072;pple.com">
+            аpple homoglyph
+          </button>
+          <button class="sample-chip extra" data-sample="$€£¥₹₩₿">
+            ₿ currency
+          </button>
+          <button class="sample-chip extra" data-sample="ˈjuːnɪˌkoʊd">
+            ˈjuːnɪˌkoʊd ipa
+          </button>
+          <button class="sample-chip subtle" id="moreChips" type="button"></button>
         </div>
       </div>
 
@@ -2116,7 +2185,8 @@
       let selCp = 0;
       let _dumpBytes = []; // last string's UTF-8 bytes, for reflowing the hex dump on resize
       let _dumpOwners = null; // byte index -> grapheme index (null on huge inputs)
-      let stripLimit = 200; // grapheme cells shown before the "show all" expander
+      const STRIP_LIMIT_DEFAULT = 20; // grapheme cells shown before the "show all" expander
+      let stripLimit = STRIP_LIMIT_DEFAULT;
       let _lastStr = null;
 
       const seg = typeof Intl !== "undefined" && Intl.Segmenter;
@@ -2143,7 +2213,7 @@
         }
 
         if (str !== _lastStr) {
-          stripLimit = 200;
+          stripLimit = STRIP_LIMIT_DEFAULT;
           _lastStr = str;
         }
 
@@ -2341,9 +2411,7 @@
               ", " +
               (g.cps.length === 1
                 ? "U+" + hex(g.cps[0].cp, 4)
-                : g.cps.length +
-                  " code points from U+" +
-                  hex(g.cps[0].cp, 4)),
+                : g.cps.length + " code points from U+" + hex(g.cps[0].cp, 4)),
           );
           const disp = displayGlyph(g.cluster, g.cps);
           cell.appendChild(el("div", "cell-index", i));
@@ -2837,9 +2905,7 @@
               const html =
                 escapeHtml(main) +
                 (formal && cldr
-                  ? ' <span class="val-dim">· “' +
-                    escapeHtml(cldr) +
-                    '”</span>'
+                  ? ' <span class="val-dim">· “' + escapeHtml(cldr) + "”</span>"
                   : "");
               const fresh = dataRow("Name", html, main);
               fresh.id = "nameRow";
@@ -3407,13 +3473,12 @@
           }
         }, 120);
       });
-      $("#clearbtn").addEventListener("click", () => {
-        $("#input").value = "";
-        selGrapheme = 0;
-        selCp = 0;
-        render();
-        persist("");
-        $("#input").focus();
+      const moreChips = $("#moreChips");
+      moreChips.textContent =
+        "+" + document.querySelectorAll(".sample-chip.extra").length + " more";
+      moreChips.addEventListener("click", () => {
+        moreChips.closest(".toolbar").classList.add("expanded");
+        moreChips.remove();
       });
       document.querySelectorAll(".sample-chip[data-sample]").forEach((b) => {
         b.addEventListener("click", () => {
