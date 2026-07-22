@@ -1057,7 +1057,9 @@
           <button class="sample-chip extra" data-sample="1&#65039;&#8419;">
             1&#65039;&#8419; keycap
           </button>
-          <button class="sample-chip extra" data-sample="é">é (combined)</button>
+          <button class="sample-chip extra" data-sample="é">
+            é (combined)
+          </button>
           <button
             class="sample-chip extra"
             data-sample="z&#820;&#769;&#790;a&#820;&#770;&#816;l&#820;&#768;&#807;g&#820;&#771;&#785;o&#820;&#772;&#803;"
@@ -1086,10 +1088,7 @@
           >
             ╔╦╗ double border
           </button>
-          <button
-            class="sample-chip extra"
-            data-sample="░░▒▒▓▓██&#10;██▓▓▒▒░░"
-          >
+          <button class="sample-chip extra" data-sample="░░▒▒▓▓██&#10;██▓▓▒▒░░">
             ░▒▓ shades
           </button>
           <button class="sample-chip extra" data-sample="Åström">Åström</button>
@@ -1108,10 +1107,7 @@
           >
             ⇄ bidi controls
           </button>
-          <button
-            class="sample-chip extra"
-            data-sample="a&#9;b&#7;c&#27;d&#4;"
-          >
+          <button class="sample-chip extra" data-sample="a&#9;b&#7;c&#27;d&#4;">
             ␛ controls
           </button>
           <button class="sample-chip extra" data-sample="⠃⠗⠁⠊⠇⠇⠑">
@@ -1132,7 +1128,11 @@
           <button class="sample-chip extra" data-sample="ˈjuːnɪˌkoʊd">
             ˈjuːnɪˌkoʊd ipa
           </button>
-          <button class="sample-chip subtle" id="moreChips" type="button"></button>
+          <button
+            class="sample-chip subtle"
+            id="moreChips"
+            type="button"
+          ></button>
         </div>
       </div>
 
@@ -2707,7 +2707,13 @@
             return r.json();
           })
           .then((list) => {
-            _emojiLabels = new Map(list.map((e) => [e.hexcode, e.label]));
+            // skin-tone variants live in each entry's nested skins array
+            _emojiLabels = new Map();
+            for (const e of list) {
+              _emojiLabels.set(e.hexcode, e.label);
+              for (const s of e.skins || [])
+                _emojiLabels.set(s.hexcode, s.label);
+            }
             return _emojiLabels;
           })
           .catch(() => {
