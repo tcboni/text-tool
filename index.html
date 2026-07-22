@@ -312,6 +312,7 @@
 
       /* ---------- section scaffolding ---------- */
       section {
+        scroll-margin: 30px;
         margin-top: 30px;
       }
       .section-header {
@@ -1007,11 +1008,11 @@
             rel="noopener"
             aria-label="View on GitHub"
           >
-          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <path
-              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"
-            />
-          </svg>
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
           </a>
         </div>
       </header>
@@ -1166,7 +1167,7 @@
         Lm: "Modifier Letter",
         Lo: "Other Letter",
         Mn: "Nonspacing Mark",
-        Mc: "Spacing Combining Mark",
+        Mc: "Spacing Mark",
         Me: "Enclosing Mark",
         Nd: "Decimal Number",
         Nl: "Letter Number",
@@ -1615,7 +1616,7 @@
       const TIPS = {
         Character:
           "The glyph as it renders. Non-printing characters (spaces, controls, joiners) are labelled instead.",
-        Name: "The formal name Unicode assigns to this code point.",
+        Name: "The formal name Unicode assigns to this code point. For emoji, the everyday CLDR name is quoted alongside when it differs.",
         "Role in cluster":
           "What job this code point does inside the grapheme — a visible base, an invisible joiner, a modifier, an accent, etc.",
         Category:
@@ -1913,8 +1914,7 @@
         if (cp in FRACTION_VALUES) return FRACTION_VALUES[cp];
         if (testP("gc=Nd", ch)) {
           let v = 0;
-          while (v < 9 && testP("gc=Nd", String.fromCodePoint(cp - v - 1)))
-            v++;
+          while (v < 9 && testP("gc=Nd", String.fromCodePoint(cp - v - 1))) v++;
           return String(v);
         }
         return null;
@@ -2341,7 +2341,9 @@
               ", " +
               (g.cps.length === 1
                 ? "U+" + hex(g.cps[0].cp, 4)
-                : g.cps.length + " code points"),
+                : g.cps.length +
+                  " code points from U+" +
+                  hex(g.cps[0].cp, 4)),
           );
           const disp = displayGlyph(g.cluster, g.cps);
           cell.appendChild(el("div", "cell-index", i));
@@ -2352,9 +2354,8 @@
             el(
               "div",
               "cell-codepoint",
-              g.cps.length === 1
-                ? "U+" + hex(g.cps[0].cp, 4)
-                : g.cps.length + " code points",
+              // the N× badge shows the count; "…" marks a continuing sequence
+              "U+" + hex(g.cps[0].cp, 4) + (g.cps.length > 1 ? "…" : ""),
             ),
           );
           cell.addEventListener("click", () => {
@@ -2396,7 +2397,9 @@
         const bigInner = disp.printable
           ? escapeHtml(g.cluster)
           : '<div class="nonprint-note">' +
-            escapeHtml(g.cps[0].name || g.cps[0].catName) +
+            escapeHtml(
+              g.cps[0].name ? prettyName(g.cps[0].name) : g.cps[0].catName,
+            ) +
             "<br>«non-printing»</div>";
         const utf8len = g.cps.reduce((n, a) => n + a.bytes.length, 0);
         const utf16len = g.cps.reduce((n, a) => n + a.units.length, 0);
@@ -2411,7 +2414,9 @@
           '<div class="specimen-name">' +
           (g.cps.length > 1
             ? "Grapheme cluster of " + g.cps.length + " code points"
-            : escapeHtml(g.cps[0].name || g.cps[0].catName)) +
+            : escapeHtml(
+                g.cps[0].name ? prettyName(g.cps[0].name) : g.cps[0].catName,
+              )) +
           "</div>" +
           '<div class="specimen-sub">' +
           g.cps.length +
@@ -2427,6 +2432,7 @@
           emojiVariants(g);
         _variantToken++;
         if (isEmojiCluster(g)) resolveMicrosoft(g.cluster, _variantToken);
+        resolveNames(g, _variantToken);
         $("#inspectHint").textContent =
           "grapheme " +
           selGrapheme +
@@ -2616,13 +2622,155 @@
         _emojiLabelsPromise = fetch(
           "https://cdn.jsdelivr.net/npm/emojibase-data@latest/en/compact.json",
         )
-          .then((r) => r.json())
+          .then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
           .then((list) => {
             _emojiLabels = new Map(list.map((e) => [e.hexcode, e.label]));
             return _emojiLabels;
           })
-          .catch(() => (_emojiLabels = new Map()));
+          .catch(() => {
+            // failed fetch: empty map now, cleared promise allows a retry
+            _emojiLabelsPromise = null;
+            return new Map();
+          });
         return _emojiLabelsPromise;
+      }
+      // cluster -> emojibase label; falls back to a VS16-stripped key since
+      // emojibase hexcodes are inconsistent about including FE0F
+      function emojiLabelFor(labels, cluster) {
+        // emojibase hexcodes are zero-padded to 4 digits ("0031-FE0F-20E3")
+        const key = (arr) =>
+          arr
+            .map((cp) => cp.toString(16).toUpperCase().padStart(4, "0"))
+            .join("-");
+        const cps = [...cluster].map((c) => c.codePointAt(0));
+        return (
+          labels.get(key(cps)) ||
+          labels.get(key(cps.filter((cp) => cp !== 0xfe0f))) ||
+          null
+        );
+      }
+      // pretty-print a CLDR label for display ("flag: France" → "Flag:
+      // France") — capitalizes each word without touching existing capitals
+      function prettyLabel(s) {
+        return s.replace(
+          /(^|[\s(:\-])([a-z])/g,
+          (m, p, c) => p + c.toUpperCase(),
+        );
+      }
+      // "LATIN SMALL LETTER A" → "Latin Small Letter A", preserving acronym
+      // and hex/digit tokens ("CJK Unified Ideograph-4E01", "Line Feed (LF)")
+      const NAME_ACRONYMS = new Set(
+        "CJK,APL,OCR,NKO,BOM,TAB,LF,VT,FF,CR,NEL".split(","),
+      );
+      function prettyName(s) {
+        return s
+          .split(" ")
+          .map((w) =>
+            w
+              .split("-")
+              .map((p) => {
+                const core = p.replace(/[^A-Z0-9]/g, "");
+                if (/\d/.test(p) || NAME_ACRONYMS.has(core)) return p;
+                return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+              })
+              .join("-"),
+          )
+          .join(" ");
+      }
+      // true when the CLDR label adds nothing over the formal name (word
+      // subset: "regional indicator F" ⊆ REGIONAL INDICATOR SYMBOL LETTER F)
+      function nameSubsumes(formal, cldr) {
+        if (!formal) return false;
+        const have = new Set(formal.toLowerCase().split(/[^a-z0-9]+/));
+        return cldr
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .every((w) => !w || have.has(w));
+      }
+
+      // ---- formal Unicode names (UnicodeData.txt) ----
+      // unicode.org sends no CORS headers, so we fetch the latex3 project's
+      // verbatim mirror of the official file (~300 KB gzipped, lazily, once)
+      let _cpNames = null;
+      let _cpNamesPromise = null;
+      function loadCpNames() {
+        if (_cpNames) return Promise.resolve(_cpNames);
+        if (_cpNamesPromise) return _cpNamesPromise;
+        _cpNamesPromise = fetch(
+          "https://cdn.jsdelivr.net/gh/latex3/unicode-data@1.18/UnicodeData.txt",
+        )
+          .then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.text();
+          })
+          .then((txt) => {
+            const map = new Map();
+            const ranges = [];
+            let first = null;
+            for (const line of txt.split("\n")) {
+              const s1 = line.indexOf(";");
+              if (s1 < 0) continue;
+              const s2 = line.indexOf(";", s1 + 1);
+              const name = line.slice(s1 + 1, s2);
+              const cp = parseInt(line.slice(0, s1), 16);
+              if (name.charCodeAt(0) === 60 /* "<" */) {
+                // <…, First>/<…, Last> markers become algorithmic-name
+                // ranges; <control> etc. are covered by the local tables
+                if (name.endsWith(", First>")) first = [cp, name.slice(1, -8)];
+                else if (name.endsWith(", Last>") && first) {
+                  ranges.push([first[0], cp, first[1]]);
+                  first = null;
+                }
+                continue;
+              }
+              map.set(cp, name);
+            }
+            _cpNames = { map, ranges };
+            return _cpNames;
+          })
+          .catch(() => {
+            // failed fetch: empty database now, cleared promise allows a retry
+            _cpNamesPromise = null;
+            return { map: new Map(), ranges: [] };
+          });
+        return _cpNamesPromise;
+      }
+      // Hangul syllable names are algorithmic (Unicode ch. 3.12): jamo
+      // short names for the leading consonant, vowel and trailing consonant
+      const HANGUL_L = "G,GG,N,D,DD,R,M,B,BB,S,SS,,J,JJ,C,K,T,P,H".split(",");
+      const HANGUL_V =
+        "A,AE,YA,YAE,EO,E,YEO,YE,O,WA,WAE,OE,YO,U,WEO,WE,WI,YU,EU,YI,I".split(
+          ",",
+        );
+      const HANGUL_T =
+        ",G,GG,GS,N,NJ,NH,D,L,LG,LM,LB,LS,LT,LP,LH,M,B,BS,S,SS,NG,J,C,K,T,P,H".split(
+          ",",
+        );
+      function hangulName(cp) {
+        const s = cp - 0xac00;
+        return (
+          "HANGUL SYLLABLE " +
+          HANGUL_L[(s / 588) | 0] +
+          HANGUL_V[((s % 588) / 28) | 0] +
+          HANGUL_T[s % 28]
+        );
+      }
+      function formalNameFor(db, cp) {
+        const hit = db.map.get(cp);
+        if (hit) return hit;
+        for (const [lo, hi, kind] of db.ranges) {
+          if (cp < lo || cp > hi) continue;
+          if (kind.startsWith("CJK Ideograph"))
+            return "CJK UNIFIED IDEOGRAPH-" + hex(cp, 4);
+          if (kind.startsWith("Tangut Ideograph"))
+            return "TANGUT IDEOGRAPH-" + hex(cp, 4);
+          if (kind.startsWith("Hangul Syllable")) return hangulName(cp);
+          return null; // surrogate / private use — the category says it all
+        }
+        return null;
       }
       let _variantToken = 0; // invalidates in-flight lookups when selection changes
       function resolveMicrosoft(cluster, token) {
@@ -2630,12 +2778,7 @@
           if (token !== _variantToken) return; // selection moved on
           const cell = $("#msVariant");
           if (!cell) return;
-          const cps = [...cluster].map((c) => c.codePointAt(0));
-          const key = (arr) =>
-            arr.map((cp) => cp.toString(16).toUpperCase()).join("-");
-          const label =
-            labels.get(key(cps)) ||
-            labels.get(key(cps.filter((cp) => cp !== 0xfe0f)));
+          const label = emojiLabelFor(labels, cluster);
           if (!label) return; // no clean name (skin-tone/ZWJ combos) → stay hidden
           const folder = label.charAt(0).toUpperCase() + label.slice(1);
           const base = label
@@ -2664,6 +2807,56 @@
         });
       }
 
+      // Async fill of the Name row and specimen header: formal names from
+      // UnicodeData.txt (when nameOf() had no local entry) plus CLDR emoji
+      // names, quoted alongside only when they add anything. Failed loads
+      // skip their fills; the token check drops stale ones.
+      function resolveNames(g, token) {
+        const a = g.cps[selCp];
+        const wantFormal = a && !a.name;
+        const wantEmoji = isEmojiCluster(g);
+        if (!wantFormal && !wantEmoji) return;
+        Promise.all([
+          wantFormal ? loadCpNames() : null,
+          wantEmoji ? loadEmojiLabels() : null,
+        ]).then(([db, labels]) => {
+          if (token !== _variantToken) return;
+          const formalRaw =
+            a.name || (db ? formalNameFor(db, a.cp) : null) || null;
+          const formal = formalRaw && prettyName(formalRaw);
+          let cldr = null;
+          if (labels) {
+            const raw = emojiLabelFor(labels, String.fromCodePoint(a.cp));
+            if (raw && !nameSubsumes(formalRaw, raw)) cldr = prettyLabel(raw);
+          }
+          // rebuild the unified Name row if async data added anything
+          const main = formal || cldr;
+          if (main && (cldr || !a.name)) {
+            const old = $("#nameRow");
+            if (old) {
+              const html =
+                escapeHtml(main) +
+                (formal && cldr
+                  ? ' <span class="val-dim">· “' +
+                    escapeHtml(cldr) +
+                    '”</span>'
+                  : "");
+              const fresh = dataRow("Name", html, main);
+              fresh.id = "nameRow";
+              old.replaceWith(fresh);
+            }
+          }
+          const nameEl = $("#specimen .specimen-name");
+          if (nameEl) {
+            const clusterLabel = labels && emojiLabelFor(labels, g.cluster);
+            if (clusterLabel && (g.cps.length > 1 || !g.cps[0].name))
+              nameEl.textContent = prettyLabel(clusterLabel);
+            else if (g.cps.length === 1 && !g.cps[0].name && formal)
+              nameEl.textContent = formal;
+          }
+        });
+      }
+
       function renderDetail(a) {
         const d = $("#detail");
         d.innerHTML = "";
@@ -2677,12 +2870,21 @@
             a.flags.printable
               ? escapeHtml(a.ch)
               : '<span class="val-dim">' +
-                  escapeHtml(a.name || a.catName) +
+                  escapeHtml(a.name ? prettyName(a.name) : a.catName) +
                   " (non-printing)</span>",
             a.ch,
           ),
         );
-        if (a.name) g1.appendChild(dataRow("Name", escapeHtml(a.name)));
+        // unified Name row — local names render now, resolveNames may
+        // rebuild it with fetched data; hidden while empty
+        const nameRow = dataRow(
+          "Name",
+          a.name ? escapeHtml(prettyName(a.name)) : "",
+          a.name ? prettyName(a.name) : null,
+        );
+        nameRow.id = "nameRow";
+        if (!a.name) nameRow.style.display = "none";
+        g1.appendChild(nameRow);
         g1.appendChild(
           dataRow(
             "Role in cluster",
@@ -3148,7 +3350,7 @@
                 : '<span class="dump-dim">.</span>';
           });
           out +=
-            off + '  ' + h + ' <span class="dump-ascii">' + asc + "</span>\n";
+            off + "  " + h + ' <span class="dump-ascii">' + asc + "</span>\n";
         }
         return out.trimEnd();
       }
@@ -3272,9 +3474,7 @@
         selCp = 0;
         renderStrip();
         renderInspector();
-        const c = $("#strip").querySelector(
-          '[data-gi="' + selGrapheme + '"]',
-        );
+        const c = $("#strip").querySelector('[data-gi="' + selGrapheme + '"]');
         if (c) c.focus();
       });
       $("#cpsel").addEventListener("keydown", (e) => {
@@ -3290,7 +3490,6 @@
         const t = $("#cpsel").children[selCp];
         if (t) t.focus();
       });
-
 
       /* ---- info tooltip engine (event-delegated, escapes clipping containers) ---- */
       (function () {
