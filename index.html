@@ -2636,6 +2636,8 @@
         },
       ];
       function emojiCodeSeq(cluster, stripVS, upper) {
+        // vendor CDN filenames zero-pad each codepoint to 4 hex digits
+        // ("0023-fe0f-20e3.png", "00a9.png") — unpadded names 404
         return [...cluster]
           .map((c) => c.codePointAt(0))
           .filter((cp) => !(stripVS && cp === 0xfe0f))
