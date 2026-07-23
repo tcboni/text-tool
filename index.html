@@ -2977,13 +2977,7 @@
         // sentence-cased here to sit alongside Category/Script/Block values;
         // the codepoint-tab annotations keep the lowercase tag form
         const roleSent = a.role.charAt(0).toUpperCase() + a.role.slice(1);
-        g1.appendChild(
-          dataRow(
-            "Role in cluster",
-            '<span class="val-cyan">' + roleSent + "</span>",
-            roleSent,
-          ),
-        );
+        g1.appendChild(dataRow("Role in cluster", roleSent, roleSent));
         g1.appendChild(
           dataRow(
             "Category",
@@ -3004,13 +2998,7 @@
             "U+" + hex(cp, 4),
           ),
         );
-        g2.appendChild(
-          dataRow(
-            "Decimal",
-            '<span class="val-accent">' + cp + "</span>",
-            String(cp),
-          ),
-        );
+        g2.appendChild(dataRow("Decimal", String(cp), String(cp)));
         g2.appendChild(
           dataRow(
             "Hexadecimal",
