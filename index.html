@@ -2639,7 +2639,7 @@
         return [...cluster]
           .map((c) => c.codePointAt(0))
           .filter((cp) => !(stripVS && cp === 0xfe0f))
-          .map((cp) => cp.toString(16))
+          .map((cp) => cp.toString(16).padStart(4, "0"))
           .join("-")
           [upper ? "toUpperCase" : "toLowerCase"]();
       }
@@ -2972,11 +2972,14 @@
         nameRow.id = "nameRow";
         if (!a.name) nameRow.style.display = "none";
         g1.appendChild(nameRow);
+        // sentence-cased here to sit alongside Category/Script/Block values;
+        // the codepoint-tab annotations keep the lowercase tag form
+        const roleSent = a.role.charAt(0).toUpperCase() + a.role.slice(1);
         g1.appendChild(
           dataRow(
             "Role in cluster",
-            '<span class="val-cyan">' + a.role + "</span>",
-            a.role,
+            '<span class="val-cyan">' + roleSent + "</span>",
+            roleSent,
           ),
         );
         g1.appendChild(
