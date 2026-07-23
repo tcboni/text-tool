@@ -1859,9 +1859,12 @@
         return btoa(s);
       }
       function groupBits(str, size = 4) {
-        // pretty-print a bitstring
+        // pretty-print a bitstring, grouping from the right so groups
+        // stay aligned with hex nibbles when the width isn't a multiple of 4
         const out = [];
-        for (let i = 0; i < str.length; i += size)
+        const head = str.length % size;
+        if (head) out.push(str.slice(0, head));
+        for (let i = head; i < str.length; i += size)
           out.push(str.slice(i, i + size));
         return out.join(" ");
       }
