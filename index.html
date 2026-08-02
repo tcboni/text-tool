@@ -1152,8 +1152,14 @@
             ░▒▓ shades
           </button>
           <button class="sample-chip extra" data-sample="Åström">Åström</button>
-          <button class="sample-chip extra" data-sample="한글漢字">
-            한글漢字 cjk
+          <button class="sample-chip extra" data-sample="中文漢字">
+            中文 chinese
+          </button>
+          <button class="sample-chip extra" data-sample="日本語かな">
+            日本語 japanese
+          </button>
+          <button class="sample-chip extra" data-sample="한글韓國">
+            한글 korean
           </button>
           <button
             class="sample-chip extra"
@@ -1770,6 +1776,13 @@
           "The Unicode version in which this code point was first assigned, with that version's release year — formally the Unicode 'Age' property.",
         "Identifier use":
           "Whether UTS #39 allows this character in security-sensitive identifiers such as usernames and domain names. Restricted characters carry the reason — obsolete script, technical notation, compatibility form, etc.",
+        Definition:
+          "The character's meaning in English, from the Unihan database.",
+        Mandarin: "The Mandarin Chinese reading, in pinyin (kMandarin).",
+        Japanese:
+          "Japanese readings, romanized — on'yomi (Chinese-derived) and kun'yomi (native) (kJapaneseOn / kJapaneseKun).",
+        Korean: "The modern Korean reading, in hangul (kHangul).",
+        Strokes: "Total stroke count of the character (kTotalStrokes).",
         Unicode:
           "The code point in standard U+ notation — its unique ID in Unicode, from U+0000 to U+10FFFF.",
         Decimal: "The same code point number written in base 10.",
@@ -3107,6 +3120,57 @@
         return _identifiersPromise;
       }
 
+      // ---- CJK dictionary data (Unihan per-property files) ----
+      // fetched lazily, and only ever triggered for Han-script characters
+      let _unihan = null;
+      let _unihanPromise = null;
+      function loadUnihan() {
+        if (_unihan) return Promise.resolve(_unihan);
+        if (_unihanPromise) return _unihanPromise;
+        // "4E2D<tab>central; middle…" — kTotalStrokes also uses
+        // "4E2D..4E30<tab>4" ranges, so everything parses as ranges
+        const parseU = (txt) => {
+          const ranges = [];
+          for (const line of txt.split("\n")) {
+            if (!line || line.charCodeAt(0) === 35 /* "#" */) continue;
+            const tab = line.indexOf("\t");
+            if (tab < 0) continue;
+            const lo = parseInt(line, 16);
+            if (isNaN(lo)) continue;
+            const dots = line.indexOf("..");
+            const hi =
+              dots < 0 || dots > tab ? lo : parseInt(line.slice(dots + 2), 16);
+            ranges.push([lo, hi, line.slice(tab + 1).trim()]);
+          }
+          ranges.sort((x, y) => x[0] - y[0]);
+          return ranges;
+        };
+        const FILES = [
+          ["definition", "kDefinition"],
+          ["mandarin", "kMandarin"],
+          ["jaOn", "kJapaneseOn"],
+          ["jaKun", "kJapaneseKun"],
+          ["hangul", "kHangul"],
+          ["strokes", "kTotalStrokes"],
+        ];
+        _unihanPromise = Promise.all(
+          FILES.map(([, f]) => fetchUCD("ucd/dev/Unihan/" + f + ".txt")),
+        )
+          .then((txts) => {
+            _unihan = {};
+            FILES.forEach(([key], i) => {
+              _unihan[key] = parseU(txts[i]);
+            });
+            return _unihan;
+          })
+          .catch(() => {
+            // failed fetch: cleared promise allows a retry
+            _unihanPromise = null;
+            return null;
+          });
+        return _unihanPromise;
+      }
+
       let _variantToken = 0; // invalidates in-flight lookups when selection changes
       function resolveMicrosoft(cluster, token) {
         loadEmojiLabels().then((labels) => {
@@ -3245,6 +3309,57 @@
         });
       }
 
+      // Async fill of the CJK dictionary group: meaning, readings and stroke
+      // count from Unihan. Only called for Han-script characters, so the
+      // fetch never happens for anyone not inspecting CJK text.
+      function resolveUnihan(a, g, token) {
+        loadUnihan().then((db) => {
+          if (token !== _variantToken || !db || !g.isConnected) return;
+          const val = (key) => rangeValueOf(db[key], a.cp);
+          const def = val("definition");
+          const man = val("mandarin");
+          const on = val("jaOn");
+          const kun = val("jaKun");
+          const hangul = val("hangul");
+          const strokes = val("strokes");
+          if (!def && !man && !on && !kun && !hangul && !strokes) return;
+          const commas = (s) => s.split(/\s+/).join(", ");
+          if (def) g.appendChild(dataRow("Definition", escapeHtml(def), def));
+          if (man) g.appendChild(dataRow("Mandarin", escapeHtml(commas(man)), man));
+          if (on || kun) {
+            const parts = [];
+            if (on)
+              parts.push(
+                escapeHtml(commas(on.toLowerCase())) +
+                  ' <span class="val-dim">(on)</span>',
+              );
+            if (kun)
+              parts.push(
+                escapeHtml(commas(kun.toLowerCase())) +
+                  ' <span class="val-dim">(kun)</span>',
+              );
+            g.appendChild(
+              dataRow(
+                "Japanese",
+                parts.join(" · "),
+                [on, kun].filter(Boolean).join(" ").toLowerCase(),
+              ),
+            );
+          }
+          if (hangul) {
+            // readings carry ":source" suffixes ("중:0E") — display just
+            // the hangul
+            const clean = hangul
+              .split(/\s+/)
+              .map((t) => t.split(":")[0])
+              .join(", ");
+            g.appendChild(dataRow("Korean", escapeHtml(clean), clean));
+          }
+          if (strokes) g.appendChild(dataRow("Strokes", escapeHtml(strokes)));
+          g.style.display = "";
+        });
+      }
+
       // Async fill of the Homoglyphs group: characters UTS #39 maps to the
       // same visual prototype as the inspected one. The group stays hidden
       // until data arrives and the class is non-empty; the token check drops
@@ -3372,6 +3487,16 @@
         d.appendChild(g1);
         resolveAge(a, _variantToken);
         resolveIdentifiers(a, _variantToken);
+
+        // ---- CJK · Unihan (async; only Han characters trigger the fetch) ----
+        // placed right after Identity: for a Han character, its meaning and
+        // readings are the headline facts
+        if (a.script === "Han") {
+          const gU = group("CJK · Unihan");
+          gU.style.display = "none";
+          d.appendChild(gU);
+          resolveUnihan(a, gU, _variantToken);
+        }
 
         // ---- Code Point ----
         const g2 = group("Code Point");
