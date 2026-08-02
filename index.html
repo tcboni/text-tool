@@ -2756,9 +2756,24 @@
 
       // All lazily-fetched Unicode data files come from the Unicode
       // Consortium's own unicodetools repo (unicode.org sends no CORS
-      // headers; jsdelivr does), pinned to the Unicode 17.0 data commit
+      // headers; jsdelivr does). main tracks the working draft of the next
+      // Unicode version, so new characters appear here before release; for
+      // already-released characters the data is stable by Unicode policy.
+      // jsdelivr re-resolves branch URLs roughly every 12 hours. Should main
+      // ever break (moved paths, bad deploy), we fall back to a pinned
+      // known-good commit holding the final Unicode 17.0 data.
       const UCD_ROOT =
+        "https://cdn.jsdelivr.net/gh/unicode-org/unicodetools@main/unicodetools/data/";
+      const UCD_ROOT_PINNED =
         "https://cdn.jsdelivr.net/gh/unicode-org/unicodetools@cdf83cbfc61b6884a2925a05492988573ce714cb/unicodetools/data/";
+      function fetchUCD(path) {
+        const grab = (root) =>
+          fetch(root + path).then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.text();
+          });
+        return grab(UCD_ROOT).catch(() => grab(UCD_ROOT_PINNED));
+      }
 
       // Microsoft's Fluent emoji are stored by CLDR name, not codepoint, so we
       // need a codepoint→label map. Unicode's emoji-test.txt carries the CLDR
@@ -2769,11 +2784,7 @@
       function loadEmojiLabels() {
         if (_emojiLabels) return Promise.resolve(_emojiLabels);
         if (_emojiLabelsPromise) return _emojiLabelsPromise;
-        _emojiLabelsPromise = fetch(UCD_ROOT + "emoji/dev/emoji-test.txt")
-          .then((r) => {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return r.text();
-          })
+        _emojiLabelsPromise = fetchUCD("emoji/dev/emoji-test.txt")
           .then((txt) => {
             // "1F62E 200D 1F4A8 ; fully-qualified # 😮‍💨 E13.1 face exhaling"
             _emojiLabels = new Map();
@@ -2862,11 +2873,7 @@
       function loadCpNames() {
         if (_cpNames) return Promise.resolve(_cpNames);
         if (_cpNamesPromise) return _cpNamesPromise;
-        _cpNamesPromise = fetch(UCD_ROOT + "ucd/dev/UnicodeData.txt")
-          .then((r) => {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return r.text();
-          })
+        _cpNamesPromise = fetchUCD("ucd/dev/UnicodeData.txt")
           .then((txt) => {
             const map = new Map();
             const ranges = [];
@@ -2941,11 +2948,7 @@
       function loadConfusables() {
         if (_confusables) return Promise.resolve(_confusables);
         if (_confusablesPromise) return _confusablesPromise;
-        _confusablesPromise = fetch(UCD_ROOT + "security/dev/confusables.txt")
-          .then((r) => {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return r.text();
-          })
+        _confusablesPromise = fetchUCD("security/dev/confusables.txt")
           .then((txt) => {
             // each entry maps one source code point to its prototype
             // ("skeleton"), a string of 1+ code points; characters sharing
