@@ -1824,10 +1824,8 @@
         "URL (percent)":
           "Percent-encoding of the UTF-8 bytes — the form used in URLs and query strings.",
         "Base64 (UTF-8)": "The UTF-8 bytes encoded as Base64.",
-        Uppercase:
-          "The uppercase form of this character.",
-        Lowercase:
-          "The lowercase form of this character.",
+        "Uppercase form": "The uppercase form of this character.",
+        "Lowercase form": "The lowercase form of this character.",
         "Numeric value":
           "The numeric value Unicode assigns to this character, if any (e.g. digits, fractions).",
         "Code points":
@@ -3487,9 +3485,9 @@
           [...form].map((c) => hex(c.codePointAt(0), 4)).join(" U+") +
           "</span>";
         if (a.upper !== a.ch)
-          g1.appendChild(dataRow("Uppercase", caseVal(a.upper), a.upper));
+          g1.appendChild(dataRow("Uppercase form", caseVal(a.upper), a.upper));
         if (a.lower !== a.ch)
-          g1.appendChild(dataRow("Lowercase", caseVal(a.lower), a.lower));
+          g1.appendChild(dataRow("Lowercase form", caseVal(a.lower), a.lower));
         if (a.numericValue != null)
           g1.appendChild(dataRow("Numeric value", String(a.numericValue)));
         // Added in and Identifier use fill asynchronously from DerivedAge
