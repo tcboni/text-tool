@@ -2754,28 +2754,42 @@
         );
       }
 
+      // All lazily-fetched Unicode data files come from the Unicode
+      // Consortium's own unicodetools repo (unicode.org sends no CORS
+      // headers; jsdelivr does), pinned to the Unicode 17.0 data commit
+      const UCD_ROOT =
+        "https://cdn.jsdelivr.net/gh/unicode-org/unicodetools@cdf83cbfc61b6884a2925a05492988573ce714cb/unicodetools/data/";
+
       // Microsoft's Fluent emoji are stored by CLDR name, not codepoint, so we
-      // need a codepoint→label map. emojibase's compact dataset provides it;
+      // need a codepoint→label map. Unicode's emoji-test.txt carries the CLDR
+      // short name for every emoji sequence (in all qualification variants);
       // it's fetched lazily (once) the first time an emoji is inspected.
       let _emojiLabels = null;
       let _emojiLabelsPromise = null;
       function loadEmojiLabels() {
         if (_emojiLabels) return Promise.resolve(_emojiLabels);
         if (_emojiLabelsPromise) return _emojiLabelsPromise;
-        _emojiLabelsPromise = fetch(
-          "https://cdn.jsdelivr.net/npm/emojibase-data@latest/en/compact.json",
-        )
+        _emojiLabelsPromise = fetch(UCD_ROOT + "emoji/dev/emoji-test.txt")
           .then((r) => {
             if (!r.ok) throw new Error("HTTP " + r.status);
-            return r.json();
+            return r.text();
           })
-          .then((list) => {
-            // skin-tone variants live in each entry's nested skins array
+          .then((txt) => {
+            // "1F62E 200D 1F4A8 ; fully-qualified # 😮‍💨 E13.1 face exhaling"
             _emojiLabels = new Map();
-            for (const e of list) {
-              _emojiLabels.set(e.hexcode, e.label);
-              for (const s of e.skins || [])
-                _emojiLabels.set(s.hexcode, s.label);
+            for (const line of txt.split("\n")) {
+              if (!line || line.charCodeAt(0) === 35 /* "#" */) continue;
+              const semi = line.indexOf(";");
+              const hash = line.indexOf("#", semi);
+              if (semi < 0 || hash < 0) continue;
+              const m = line
+                .slice(hash)
+                .match(/^# \S+ E\d+(?:\.\d+)? (.+?)\s*$/);
+              if (!m) continue;
+              _emojiLabels.set(
+                line.slice(0, semi).trim().split(/\s+/).join("-"),
+                m[1],
+              );
             }
             return _emojiLabels;
           })
@@ -2786,10 +2800,11 @@
           });
         return _emojiLabelsPromise;
       }
-      // cluster -> emojibase label; falls back to a VS16-stripped key since
-      // emojibase hexcodes are inconsistent about including FE0F
+      // cluster -> CLDR label; falls back to a VS16-stripped key since the
+      // qualification variants differ only in FE0F and not every combination
+      // is listed
       function emojiLabelFor(labels, cluster) {
-        // emojibase hexcodes are zero-padded to 4 digits ("0031-FE0F-20E3")
+        // emoji-test hexcodes are zero-padded to 4 digits ("0031 FE0F 20E3")
         const key = (arr) =>
           arr
             .map((cp) => cp.toString(16).toUpperCase().padStart(4, "0"))
@@ -2841,16 +2856,13 @@
       }
 
       // ---- formal Unicode names (UnicodeData.txt) ----
-      // unicode.org sends no CORS headers, so we fetch the latex3 project's
-      // verbatim mirror of the official file (~300 KB gzipped, lazily, once)
+      // ~300 KB gzipped, fetched lazily, once
       let _cpNames = null;
       let _cpNamesPromise = null;
       function loadCpNames() {
         if (_cpNames) return Promise.resolve(_cpNames);
         if (_cpNamesPromise) return _cpNamesPromise;
-        _cpNamesPromise = fetch(
-          "https://cdn.jsdelivr.net/gh/latex3/unicode-data@1.18/UnicodeData.txt",
-        )
+        _cpNamesPromise = fetch(UCD_ROOT + "ucd/dev/UnicodeData.txt")
           .then((r) => {
             if (!r.ok) throw new Error("HTTP " + r.status);
             return r.text();
@@ -2923,16 +2935,13 @@
       }
 
       // ---- visual confusables (UTS #39 confusables.txt) ----
-      // unicode.org sends no CORS headers here either; the ICU repo carries
-      // a verbatim copy of the security data file (~150 KB gzipped, lazily)
+      // ~150 KB gzipped, fetched lazily, once
       let _confusables = null;
       let _confusablesPromise = null;
       function loadConfusables() {
         if (_confusables) return Promise.resolve(_confusables);
         if (_confusablesPromise) return _confusablesPromise;
-        _confusablesPromise = fetch(
-          "https://cdn.jsdelivr.net/gh/unicode-org/icu@release-76-1/icu4c/source/data/unidata/confusables.txt",
-        )
+        _confusablesPromise = fetch(UCD_ROOT + "security/dev/confusables.txt")
           .then((r) => {
             if (!r.ok) throw new Error("HTTP " + r.status);
             return r.text();
