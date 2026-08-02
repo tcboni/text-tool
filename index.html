@@ -4178,6 +4178,31 @@
         // sync hash + storage for restored content, but leave the demo's URL clean
         if (restored) persist(init);
       })();
+
+      // Once the page has settled, warm the remaining Unicode data files in
+      // the background so the first inspection of, say, a CJK character
+      // doesn't wait on the network. The loaders are memoized, so anything
+      // already fetched (or in flight) from user activity is a no-op; one
+      // file per idle slot keeps fetch+parse off the interactive path.
+      (function () {
+        const loaders = [
+          loadCpNames, // formal names — needed for almost any inspection
+          loadAges,
+          loadConfusables,
+          loadIdentifiers,
+          loadEmojiLabels,
+          loadUnihan, // largest, and only Han characters use it — last
+        ];
+        const idle =
+          window.requestIdleCallback || ((fn) => setTimeout(fn, 500));
+        let i = 0;
+        function next() {
+          if (i >= loaders.length) return;
+          idle(() => loaders[i++]().then(next, next), { timeout: 10000 });
+        }
+        if (document.readyState === "complete") next();
+        else window.addEventListener("load", next, { once: true });
+      })();
     </script>
   </body>
 </html>
