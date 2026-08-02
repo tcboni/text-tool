@@ -1825,9 +1825,9 @@
           "Percent-encoding of the UTF-8 bytes — the form used in URLs and query strings.",
         "Base64 (UTF-8)": "The UTF-8 bytes encoded as Base64.",
         Uppercase:
-          "The uppercase form of this character (unchanged if it has none).",
+          "The uppercase form of this character.",
         Lowercase:
-          "The lowercase form of this character (unchanged if it has none).",
+          "The lowercase form of this character.",
         "Numeric value":
           "The numeric value Unicode assigns to this character, if any (e.g. digits, fractions).",
         "Code points":
@@ -3478,6 +3478,20 @@
         );
         g1.appendChild(dataRow("Script", a.script));
         g1.appendChild(dataRow("Block", a.block));
+        // case mappings appear only when they actually change the character,
+        // the numeric value only when there is one — most characters (emoji,
+        // punctuation, CJK…) show none of these rows
+        const caseVal = (form) =>
+          escapeHtml(form) +
+          ' <span class="val-dim">U+' +
+          [...form].map((c) => hex(c.codePointAt(0), 4)).join(" U+") +
+          "</span>";
+        if (a.upper !== a.ch)
+          g1.appendChild(dataRow("Uppercase", caseVal(a.upper), a.upper));
+        if (a.lower !== a.ch)
+          g1.appendChild(dataRow("Lowercase", caseVal(a.lower), a.lower));
+        if (a.numericValue != null)
+          g1.appendChild(dataRow("Numeric value", String(a.numericValue)));
         // Added in and Identifier use fill asynchronously from DerivedAge
         // and IdentifierType; hidden until their data arrives
         const ageRow = dataRow("Added in", "");
@@ -3648,20 +3662,6 @@
         );
         g5.appendChild(dataRow("Base64 (UTF-8)", b64(a.bytes)));
         d.appendChild(g5);
-
-        // ---- Case & Numeric ----
-        const g6 = group("Case & Numeric");
-        const caseVal = (form) =>
-          escapeHtml(form) +
-          ' <span class="val-dim">U+' +
-          [...form].map((c) => hex(c.codePointAt(0), 4)).join(" U+") +
-          (form === a.ch ? " · unchanged" : "") +
-          "</span>";
-        g6.appendChild(dataRow("Uppercase", caseVal(a.upper), a.upper));
-        g6.appendChild(dataRow("Lowercase", caseVal(a.lower), a.lower));
-        if (a.numericValue != null)
-          g6.appendChild(dataRow("Numeric value", String(a.numericValue)));
-        d.appendChild(g6);
 
         // ---- Homoglyphs (async; hidden until UTS #39 data arrives) ----
         const g6b = group("Homoglyphs");
