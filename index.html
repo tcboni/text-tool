@@ -3084,36 +3084,31 @@
         return null;
       }
 
-      // ---- identifier safety (UTS #39 IdentifierStatus/Type.txt) ----
-      // the status file lists only Allowed ranges (everything unlisted is
-      // Restricted); the type file carries the reason(s). Fetched lazily
+      // ---- identifier safety (UTS #39 IdentifierType.txt) ----
+      // Identifier_Status is derived rather than fetched: per UTS #39, a
+      // character is Allowed exactly when its types are only Recommended
+      // and/or Inclusion. Fetched lazily
       let _identifiers = null;
       let _identifiersPromise = null;
       function loadIdentifiers() {
         if (_identifiers) return Promise.resolve(_identifiers);
         if (_identifiersPromise) return _identifiersPromise;
-        // "16A0..16EA ; Exclusion # …" / "0027 ; Allowed # …"; the type
-        // field may hold several space-separated values
-        const parse = (txt) => {
-          const ranges = [];
-          for (const line of txt.split("\n")) {
-            if (!line || line.charCodeAt(0) === 35 /* "#" */) continue;
-            const m = line.match(
-              /^([0-9A-F]+)(?:\.\.([0-9A-F]+))?\s*;\s*([A-Za-z_ ]+?)\s*(?:#|$)/,
-            );
-            if (!m) continue;
-            const lo = parseInt(m[1], 16);
-            ranges.push([lo, m[2] ? parseInt(m[2], 16) : lo, m[3]]);
-          }
-          ranges.sort((x, y) => x[0] - y[0]);
-          return ranges;
-        };
-        _identifiersPromise = Promise.all([
-          fetchUCD("security/dev/IdentifierStatus.txt"),
-          fetchUCD("security/dev/IdentifierType.txt"),
-        ])
-          .then(([st, ty]) => {
-            _identifiers = { allowed: parse(st), types: parse(ty) };
+        _identifiersPromise = fetchUCD("security/dev/IdentifierType.txt")
+          .then((txt) => {
+            // "16A0..16EA ; Exclusion # …"; the type field may hold
+            // several space-separated values
+            const ranges = [];
+            for (const line of txt.split("\n")) {
+              if (!line || line.charCodeAt(0) === 35 /* "#" */) continue;
+              const m = line.match(
+                /^([0-9A-F]+)(?:\.\.([0-9A-F]+))?\s*;\s*([A-Za-z_ ]+?)\s*(?:#|$)/,
+              );
+              if (!m) continue;
+              const lo = parseInt(m[1], 16);
+              ranges.push([lo, m[2] ? parseInt(m[2], 16) : lo, m[3]]);
+            }
+            ranges.sort((x, y) => x[0] - y[0]);
+            _identifiers = ranges;
             return _identifiers;
           })
           .catch(() => {
@@ -3290,17 +3285,22 @@
           if (token !== _variantToken || !db) return;
           const row = $("#identRow");
           if (!row) return;
-          const types = rangeValueOf(db.types, a.cp);
-          const allowed = rangeValueOf(db.allowed, a.cp) != null;
-          if (!types && !allowed) return;
-          const reasons = types ? types.split(/\s+/).join(" · ") : "";
+          const types = rangeValueOf(db, a.cp);
+          if (!types) return;
+          const list = types.split(/\s+/);
+          const allowed = list.every(
+            (t) => t === "Recommended" || t === "Inclusion",
+          );
+          const reasons = list.join(" · ");
           const html = allowed
             ? "Allowed" +
-              (types && types !== "Recommended"
+              (types !== "Recommended"
                 ? ' <span class="val-dim">— ' + reasons + "</span>"
                 : "")
-            : '<span class="val-accent">Restricted</span>' +
-              (types ? ' <span class="val-dim">— ' + reasons + "</span>" : "");
+            : "Restricted" +
+              ' <span class="val-dim">— ' +
+              reasons +
+              "</span>";
           const fresh = dataRow(
             "Identifier use",
             html,
@@ -3479,7 +3479,7 @@
         g1.appendChild(dataRow("Script", a.script));
         g1.appendChild(dataRow("Block", a.block));
         // Added in and Identifier use fill asynchronously from DerivedAge
-        // and IdentifierStatus/Type; hidden until their data arrives
+        // and IdentifierType; hidden until their data arrives
         const ageRow = dataRow("Added in", "");
         ageRow.id = "ageRow";
         ageRow.style.display = "none";
