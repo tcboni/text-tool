@@ -569,6 +569,62 @@
         line-height: 1.2;
       }
 
+      /* visually-confusable characters (UTS #39) */
+      .conf-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+        gap: 8px;
+        padding: 4px 16px 16px;
+      }
+      .conf-chip {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 8px 4px 7px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        cursor: pointer;
+        text-align: center;
+        font: inherit;
+        color: inherit;
+        transition: border-color 0.1s;
+      }
+      .conf-chip:hover {
+        border-color: rgba(255, 180, 84, 0.4);
+      }
+      .conf-glyph {
+        font-size: 22px;
+        line-height: 30px;
+        min-height: 30px;
+        max-width: 100%;
+        overflow: hidden;
+        color: var(--ink);
+      }
+      .conf-glyph .val-dim {
+        font-size: 15px;
+      }
+      .conf-cp {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--ink-dim);
+        line-height: 1.25;
+        word-break: break-all;
+      }
+      .conf-script {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--ink-faint);
+        line-height: 1.2;
+      }
+      .conf-chip.more {
+        justify-content: center;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-dim);
+      }
+
       /* code-point selector for multi-codepoint clusters */
       .codepoint-tabs {
         display: flex;
@@ -618,6 +674,7 @@
       }
       .detail-group {
         border-top: 1px solid var(--line-soft);
+        padding: 4px 0;
       }
       .detail-group:first-child {
         border-top: 0;
@@ -954,6 +1011,7 @@
       .grapheme-cell:focus-visible,
       .codepoint-tab:focus-visible,
       .sample-chip:focus-visible,
+      .conf-chip:focus-visible,
       .copy-btn:focus-visible {
         outline: 2px solid var(--amber);
         outline-offset: 2px;
@@ -2863,6 +2921,70 @@
         }
         return null;
       }
+
+      // ---- visual confusables (UTS #39 confusables.txt) ----
+      // unicode.org sends no CORS headers here either; the ICU repo carries
+      // a verbatim copy of the security data file (~150 KB gzipped, lazily)
+      let _confusables = null;
+      let _confusablesPromise = null;
+      function loadConfusables() {
+        if (_confusables) return Promise.resolve(_confusables);
+        if (_confusablesPromise) return _confusablesPromise;
+        _confusablesPromise = fetch(
+          "https://cdn.jsdelivr.net/gh/unicode-org/icu@release-76-1/icu4c/source/data/unidata/confusables.txt",
+        )
+          .then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.text();
+          })
+          .then((txt) => {
+            // each entry maps one source code point to its prototype
+            // ("skeleton"), a string of 1+ code points; characters sharing
+            // a prototype form one confusable equivalence class
+            const skel = new Map(); // cp -> prototype string
+            const cls = new Map(); // prototype string -> [cp, ...]
+            for (const line of txt.split("\n")) {
+              if (!line || line.charCodeAt(0) === 35 /* "#" */) continue;
+              const parts = line.split(";");
+              if (parts.length < 2) continue;
+              const cp = parseInt(parts[0], 16);
+              if (isNaN(cp)) continue;
+              const proto = parts[1]
+                .trim()
+                .split(/\s+/)
+                .map((h) => String.fromCodePoint(parseInt(h, 16)))
+                .join("");
+              if (!proto) continue;
+              skel.set(cp, proto);
+              let arr = cls.get(proto);
+              if (!arr) cls.set(proto, (arr = []));
+              arr.push(cp);
+            }
+            _confusables = { skel, cls };
+            return _confusables;
+          })
+          .catch(() => {
+            // failed fetch: empty database now, cleared promise allows a retry
+            _confusablesPromise = null;
+            return { skel: new Map(), cls: new Map() };
+          });
+        return _confusablesPromise;
+      }
+      // everything UTS #39 deems visually confusable with cp: the members of
+      // its skeleton class (sorted) minus itself, with the prototype itself
+      // first (it belongs to the class but has no entry of its own). Members
+      // are strings — prototypes may be sequences (e.g. ǉ → "lj").
+      function confusablesOf(db, cp) {
+        const self = String.fromCodePoint(cp);
+        const proto = db.skel.get(cp) || self;
+        const out = (db.cls.get(proto) || [])
+          .filter((m) => m !== cp)
+          .sort((x, y) => x - y)
+          .map((m) => String.fromCodePoint(m));
+        if (proto !== self) out.unshift(proto);
+        return out;
+      }
+
       let _variantToken = 0; // invalidates in-flight lookups when selection changes
       function resolveMicrosoft(cluster, token) {
         loadEmojiLabels().then((labels) => {
@@ -2943,6 +3065,79 @@
             else if (g.cps.length === 1 && !g.cps[0].name && formal)
               nameEl.textContent = formal;
           }
+        });
+      }
+
+      // Async fill of the Homoglyphs group: characters UTS #39 maps to the
+      // same visual prototype as the inspected one. The group stays hidden
+      // until data arrives and the class is non-empty; the token check drops
+      // fills whose selection has moved on.
+      const CONF_LIMIT = 15; // chips shown before the "+N more" expander
+      function resolveConfusables(a, g, token) {
+        loadConfusables().then((db) => {
+          if (token !== _variantToken || !g.isConnected) return;
+          const members = confusablesOf(db, a.cp);
+          if (!members.length) return;
+          const head = g.querySelector(".group-title");
+          head.textContent = "Homoglyphs · " + members.length;
+          const grid = el("div", "conf-grid");
+          const makeChip = (s) => {
+            const cps = [...s].map((c) => c.codePointAt(0));
+            const as = cps.map(analyzeCodepoint);
+            const script = as[0].script;
+            const chip = el("button", "conf-chip");
+            chip.type = "button";
+            // combining marks ride a dotted circle; other non-printing
+            // members get a dim placeholder so the chip never looks empty
+            const disp = as.every((x) => x.flags.combining) ? "◌" + s : s;
+            const printable = as.some(
+              (x) => x.flags.printable || x.flags.combining,
+            );
+            chip.appendChild(
+              el(
+                "div",
+                "conf-glyph",
+                printable ? escapeHtml(disp) : '<span class="val-dim">·</span>',
+              ),
+            );
+            chip.appendChild(
+              el("div", "conf-cp", cps.map((c) => "U+" + hex(c, 4)).join(" ")),
+            );
+            chip.appendChild(el("div", "conf-script", script));
+            // formal names annotate the chip only when the name DB is
+            // already in memory — this group alone shouldn't trigger a fetch
+            let nm = null;
+            if (cps.length === 1)
+              nm =
+                as[0].name ||
+                (_cpNames ? formalNameFor(_cpNames, cps[0]) : null);
+            chip.title = (nm ? prettyName(nm) + " — " : "") + "click to copy";
+            chip.addEventListener("click", () => {
+              doCopy(s);
+              showToast("Copied " + cps.map((c) => "U+" + hex(c, 4)).join(" "));
+            });
+            return chip;
+          };
+          members.slice(0, CONF_LIMIT).forEach((s) => {
+            grid.appendChild(makeChip(s));
+          });
+          if (members.length > CONF_LIMIT) {
+            const more = el(
+              "button",
+              "conf-chip more",
+              "+" + (members.length - CONF_LIMIT) + " more",
+            );
+            more.type = "button";
+            more.addEventListener("click", () => {
+              members.slice(CONF_LIMIT).forEach((s) => {
+                grid.appendChild(makeChip(s));
+              });
+              more.remove();
+            });
+            grid.appendChild(more);
+          }
+          g.appendChild(grid);
+          g.style.display = "";
         });
       }
 
@@ -3149,6 +3344,12 @@
         if (a.numericValue != null)
           g6.appendChild(dataRow("Numeric value", String(a.numericValue)));
         d.appendChild(g6);
+
+        // ---- Homoglyphs (async; hidden until UTS #39 data arrives) ----
+        const g6b = group("Homoglyphs");
+        g6b.style.display = "none";
+        d.appendChild(g6b);
+        resolveConfusables(a, g6b, _variantToken);
 
         // ---- Properties ----
         const g7 = group("Properties");
