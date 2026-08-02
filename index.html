@@ -555,6 +555,8 @@
         width: 44px;
         height: 44px;
         image-rendering: auto;
+        /* keep non-square artwork (e.g. Unicode's SVG flags) undistorted */
+        object-fit: contain;
       }
       .emoji-variant-name {
         font-family: var(--mono);
@@ -1766,6 +1768,8 @@
           "The named, contiguous range of the Unicode code space this character lives in.",
         "Added in":
           "The Unicode version in which this code point was first assigned, with that version's release year — formally the Unicode 'Age' property.",
+        "Identifier use":
+          "Whether UTS #39 allows this character in security-sensitive identifiers such as usernames and domain names. Restricted characters carry the reason — obsolete script, technical notation, compatibility form, etc.",
         Unicode:
           "The code point in standard U+ notation — its unique ID in Unicode, from U+0000 to U+10FFFF.",
         Decimal: "The same code point number written in base 10.",
@@ -2673,6 +2677,15 @@
         code +
         ".png";
       const EMOJI_VENDORS = [
+        {
+          // the Consortium's own reference artwork, as used in its published
+          // emoji charts — filenames join code points with "_" and never
+          // include FE0F (the VS16-stripped retry finds those)
+          label: "Unicode",
+          sub: "Reference chart",
+          url: (c) =>
+            UCD_ROOT + "images/svg/emoji_" + c.split("-").join("_") + ".svg",
+        },
         { label: "Apple", sub: "iOS · macOS", url: dsUrl("apple") },
         { label: "Google", sub: "Android · Noto", url: dsUrl("google") },
         { label: "Facebook", sub: "Messenger", url: dsUrl("facebook") },
@@ -3040,7 +3053,8 @@
           });
         return _agesPromise;
       }
-      function ageOf(ranges, cp) {
+      // binary search over sorted, non-overlapping [lo, hi, value] ranges
+      function rangeValueOf(ranges, cp) {
         let lo = 0,
           hi = ranges.length - 1;
         while (lo <= hi) {
@@ -3051,6 +3065,46 @@
           else return r[2];
         }
         return null;
+      }
+
+      // ---- identifier safety (UTS #39 IdentifierStatus/Type.txt) ----
+      // the status file lists only Allowed ranges (everything unlisted is
+      // Restricted); the type file carries the reason(s). Fetched lazily
+      let _identifiers = null;
+      let _identifiersPromise = null;
+      function loadIdentifiers() {
+        if (_identifiers) return Promise.resolve(_identifiers);
+        if (_identifiersPromise) return _identifiersPromise;
+        // "16A0..16EA ; Exclusion # …" / "0027 ; Allowed # …"; the type
+        // field may hold several space-separated values
+        const parse = (txt) => {
+          const ranges = [];
+          for (const line of txt.split("\n")) {
+            if (!line || line.charCodeAt(0) === 35 /* "#" */) continue;
+            const m = line.match(
+              /^([0-9A-F]+)(?:\.\.([0-9A-F]+))?\s*;\s*([A-Za-z_ ]+?)\s*(?:#|$)/,
+            );
+            if (!m) continue;
+            const lo = parseInt(m[1], 16);
+            ranges.push([lo, m[2] ? parseInt(m[2], 16) : lo, m[3]]);
+          }
+          ranges.sort((x, y) => x[0] - y[0]);
+          return ranges;
+        };
+        _identifiersPromise = Promise.all([
+          fetchUCD("security/dev/IdentifierStatus.txt"),
+          fetchUCD("security/dev/IdentifierType.txt"),
+        ])
+          .then(([st, ty]) => {
+            _identifiers = { allowed: parse(st), types: parse(ty) };
+            return _identifiers;
+          })
+          .catch(() => {
+            // failed fetch: cleared promise allows a retry
+            _identifiersPromise = null;
+            return null;
+          });
+        return _identifiersPromise;
       }
 
       let _variantToken = 0; // invalidates in-flight lookups when selection changes
@@ -3144,7 +3198,7 @@
           if (token !== _variantToken) return;
           const row = $("#ageRow");
           if (!row) return;
-          const ver = ageOf(db.ranges, a.cp);
+          const ver = rangeValueOf(db.ranges, a.cp);
           if (!ver) return;
           const year = db.years[ver];
           const fresh = dataRow(
@@ -3155,6 +3209,38 @@
             "Unicode " + ver,
           );
           fresh.id = "ageRow";
+          row.replaceWith(fresh);
+        });
+      }
+
+      // Async fill of the Identifier use row: UTS #39 Identifier_Status
+      // (Allowed vs Restricted) plus the Identifier_Type reason(s). Code
+      // points absent from both files (unassigned, surrogates, private
+      // use) keep the row hidden.
+      function resolveIdentifiers(a, token) {
+        loadIdentifiers().then((db) => {
+          if (token !== _variantToken || !db) return;
+          const row = $("#identRow");
+          if (!row) return;
+          const types = rangeValueOf(db.types, a.cp);
+          const allowed = rangeValueOf(db.allowed, a.cp) != null;
+          if (!types && !allowed) return;
+          const reasons = types ? types.split(/\s+/).join(" · ") : "";
+          const html = allowed
+            ? "Allowed" +
+              (types && types !== "Recommended"
+                ? ' <span class="val-dim">— ' + reasons + "</span>"
+                : "")
+            : '<span class="val-accent">Restricted</span>' +
+              (types ? ' <span class="val-dim">— ' + reasons + "</span>" : "");
+          const fresh = dataRow(
+            "Identifier use",
+            html,
+            allowed
+              ? "Allowed"
+              : "Restricted" + (types ? " (" + types + ")" : ""),
+          );
+          fresh.id = "identRow";
           row.replaceWith(fresh);
         });
       }
@@ -3273,13 +3359,19 @@
         );
         g1.appendChild(dataRow("Script", a.script));
         g1.appendChild(dataRow("Block", a.block));
-        // Added in fills asynchronously from DerivedAge.txt; hidden until then
+        // Added in and Identifier use fill asynchronously from DerivedAge
+        // and IdentifierStatus/Type; hidden until their data arrives
         const ageRow = dataRow("Added in", "");
         ageRow.id = "ageRow";
         ageRow.style.display = "none";
         g1.appendChild(ageRow);
+        const identRow = dataRow("Identifier use", "");
+        identRow.id = "identRow";
+        identRow.style.display = "none";
+        g1.appendChild(identRow);
         d.appendChild(g1);
         resolveAge(a, _variantToken);
+        resolveIdentifiers(a, _variantToken);
 
         // ---- Code Point ----
         const g2 = group("Code Point");
