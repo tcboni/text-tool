@@ -1225,7 +1225,7 @@
               class="codepoint-tabs"
               id="cpsel"
               role="tablist"
-              aria-label="Code points in cluster"
+              aria-label="Code points in grapheme"
             ></div>
             <div class="detail-table" id="detail"></div>
           </div>
@@ -1831,7 +1831,7 @@
           "Sentences detected by the Unicode sentence-segmentation algorithm.",
         Words: "The individual word-like segments found in the text.",
         "Reversed (graphemes)":
-          "The string reversed by grapheme cluster — so emoji and accented letters stay intact (unlike naive character reversal).",
+          "The string reversed by grapheme — so emoji and accented letters stay intact (unlike naive character reversal).",
       };
 
       // pill tooltips (property pills + cluster pills)
@@ -1871,7 +1871,7 @@
         BMP: "In the Basic Multilingual Plane (U+0000–U+FFFF).",
         "Astral (>U+FFFF)": "Above the BMP — needs a surrogate pair in UTF-16.",
         // cluster pills
-        emoji: "This cluster is an emoji.",
+        emoji: "This grapheme is an emoji.",
         "ZWJ sequence":
           "Several emoji joined by Zero-Width Joiners into a single glyph.",
         "skin tone": "Includes a skin-tone modifier.",
@@ -2462,7 +2462,7 @@
         strip.innerHTML = "";
         $("#graphemeHint").textContent =
           graphemes.length +
-          " cluster" +
+          " grapheme" +
           (graphemes.length > 1 ? "s" : "") +
           " · click to inspect";
         if (selGrapheme >= stripLimit) stripLimit = graphemes.length;
@@ -2574,10 +2574,10 @@
         _variantToken++;
         if (isEmojiCluster(g)) resolveMicrosoft(g.cluster, _variantToken);
         resolveNames(g, _variantToken);
-        $("#inspectHint").textContent =
-          "grapheme " +
-          selGrapheme +
-          (g.cps.length > 1 ? " · " + g.cps.length + " code points" : "");
+        const hintParts = [];
+        if (graphemes.length > 1) hintParts.push("grapheme " + selGrapheme);
+        if (g.cps.length > 1) hintParts.push(g.cps.length + " code points");
+        $("#inspectHint").textContent = hintParts.join(" · ");
 
         const cpsel = $("#cpsel");
         cpsel.innerHTML = "";
