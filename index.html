@@ -3456,6 +3456,7 @@
           const head = g.querySelector(".group-title");
           head.textContent = "Homoglyphs · " + members.length;
           const grid = el("div", "conf-grid");
+          const pending = []; // [chip, cp] pairs awaiting the name DB
           const makeChip = (s) => {
             const cps = [...s].map((c) => c.codePointAt(0));
             const as = cps.map(analyzeCodepoint);
@@ -3479,20 +3480,32 @@
               el("div", "conf-cp", cps.map((c) => "U+" + hex(c, 4)).join(" ")),
             );
             chip.appendChild(el("div", "conf-script", script));
-            // formal names annotate the chip only when the name DB is
-            // already in memory — this group alone shouldn't trigger a fetch
+            // the formal name is the chip's tooltip; when the name DB isn't
+            // in memory yet the backfill below fills it in on arrival
             let nm = null;
-            if (cps.length === 1)
+            if (cps.length === 1) {
               nm =
                 as[0].name ||
                 (_cpNames ? formalNameFor(_cpNames, cps[0]) : null);
-            chip.title = (nm ? prettyName(nm) + " — " : "") + "click to copy";
+              if (!nm) pending.push([chip, cps[0]]);
+            }
+            if (nm) chip.dataset.tip = prettyName(nm);
             chip.addEventListener("click", () => {
               doCopy(s);
               showToast("Copied " + cps.map((c) => "U+" + hex(c, 4)).join(" "));
             });
             return chip;
           };
+          // chips built before UnicodeData.txt arrived get their tooltip on
+          // load; chips made after it take the synchronous _cpNames path
+          const fillPending = () =>
+            loadCpNames().then((db) => {
+              if (token !== _variantToken || !g.isConnected) return;
+              pending.splice(0).forEach(([chip, cp]) => {
+                const nm = formalNameFor(db, cp);
+                if (nm) chip.dataset.tip = prettyName(nm);
+              });
+            });
           members.slice(0, CONF_LIMIT).forEach((s) => {
             grid.appendChild(makeChip(s));
           });
@@ -3508,11 +3521,13 @@
                 grid.appendChild(makeChip(s));
               });
               more.remove();
+              if (pending.length) fillPending();
             });
             grid.appendChild(more);
           }
           g.appendChild(grid);
           g.style.display = "";
+          if (pending.length) fillPending();
         });
       }
 
