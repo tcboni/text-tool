@@ -774,6 +774,64 @@
         stroke-linejoin: round;
       }
 
+      /* ---------- go-to code point dialog (spotlight style) ---------- */
+      #gotoDialog {
+        background: transparent;
+        border: 0;
+        outline: 0;
+        padding: 0;
+        color: var(--ink);
+        text-align: center;
+        /* floating text over arbitrary page content needs its own contrast */
+        text-shadow:
+          0 2px 8px rgba(0, 0, 0, 0.9),
+          0 1px rgba(0, 0, 0, 0.9);
+      }
+      #gotoDialog::backdrop {
+        background: rgba(0, 0, 0, 0.85);
+      }
+      .goto-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--amber-dim);
+        margin-bottom: 18px;
+      }
+      .goto-field {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        font-family: var(--mono);
+        font-size: 52px;
+      }
+      .goto-prefix {
+        color: var(--ink-faint);
+        user-select: none;
+      }
+      #gotoInput {
+        background: none;
+        border: 0;
+        outline: 0;
+        color: var(--ink);
+        font: inherit;
+        width: 6.5ch;
+        text-transform: uppercase;
+        caret-color: var(--amber);
+        text-shadow: inherit;
+      }
+      .goto-hint {
+        margin-top: 18px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--ink-faint);
+        line-height: 1.6;
+      }
+      .goto-error {
+        display: block;
+        color: var(--amber);
+      }
+
       /* ---------- info tooltip ---------- */
       .has-tip {
         cursor: help;
@@ -1063,6 +1121,13 @@
           <div><h1>Text Tool</h1></div>
         </div>
         <div class="header-actions">
+          <button class="share-btn has-tip" id="gotobtn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h13" />
+              <path d="M13 6l6 6-6 6" />
+            </svg>
+            Go to
+          </button>
           <button class="share-btn" id="sharebtn" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -1299,6 +1364,24 @@
         Awaiting input — the instrument is idle.
       </div>
     </div>
+
+    <dialog id="gotoDialog">
+      <div class="goto-title">Go to code point</div>
+      <div class="goto-field">
+        <span class="goto-prefix">U+</span>
+        <input
+          id="gotoInput"
+          maxlength="6"
+          spellcheck="false"
+          autocomplete="off"
+          aria-label="Code point in hexadecimal"
+        />
+      </div>
+      <div class="goto-hint">
+        Enter to jump · Esc to close
+        <span class="goto-error" id="gotoErr"></span>
+      </div>
+    </dialog>
 
     <div id="tooltip"></div>
     <div id="toast" role="status"></div>
@@ -3295,10 +3378,7 @@
               (types !== "Recommended"
                 ? ' <span class="val-dim">— ' + reasons + "</span>"
                 : "")
-            : "Restricted" +
-              ' <span class="val-dim">— ' +
-              reasons +
-              "</span>";
+            : "Restricted" + ' <span class="val-dim">— ' + reasons + "</span>";
           const fresh = dataRow(
             "Identifier use",
             html,
@@ -3327,7 +3407,8 @@
           if (!def && !man && !on && !kun && !hangul && !strokes) return;
           const commas = (s) => s.split(/\s+/).join(", ");
           if (def) g.appendChild(dataRow("Definition", escapeHtml(def), def));
-          if (man) g.appendChild(dataRow("Mandarin", escapeHtml(commas(man)), man));
+          if (man)
+            g.appendChild(dataRow("Mandarin", escapeHtml(commas(man)), man));
           if (on || kun) {
             const parts = [];
             if (on)
@@ -4086,6 +4167,79 @@
         const t = $("#cpsel").children[selCp];
         if (t) t.focus();
       });
+
+      /* ---- go-to code point dialog (header button or Cmd/Ctrl+K) ---- */
+      (function () {
+        const dlg = $("#gotoDialog");
+        const field = $("#gotoInput");
+        const err = $("#gotoErr");
+        const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+        $("#gotobtn").dataset.tip =
+          "Jump to a code point (" + (isMac ? "⌘G" : "Ctrl+G") + ")";
+        function open() {
+          field.value = "";
+          err.textContent = "";
+          dlg.showModal();
+        }
+        $("#gotobtn").addEventListener("click", open);
+        document.addEventListener("keydown", (e) => {
+          if ((e.metaKey || e.ctrlKey) && (e.key === "g" || e.key === "G")) {
+            e.preventDefault();
+            if (dlg.open) dlg.close();
+            else open();
+          }
+        });
+        // tolerate "U+1F469", "0x1F469", stray text — keep only hex digits
+        const clean = (s) =>
+          s
+            .replace(/^\s*(?:U\+|0X)/i, "")
+            .replace(/[^0-9a-fA-F]/g, "")
+            .slice(0, 6);
+        // null = empty, NaN = out of range, number = valid code point
+        function parse() {
+          if (!field.value) return null;
+          const cp = parseInt(field.value, 16);
+          return cp > 0x10ffff ? NaN : cp;
+        }
+        function jump(cp) {
+          dlg.close();
+          const inp = $("#input");
+          inp.value = String.fromCodePoint(cp);
+          inp.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        field.addEventListener("input", () => {
+          const c = clean(field.value);
+          if (c !== field.value) field.value = c;
+          err.textContent = parse() !== parse() ? "beyond U+10FFFF" : "";
+        });
+        field.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const cp = parse();
+            if (cp === null)
+              dlg.close(); // empty field: Enter backs out
+            else if (cp === cp) jump(cp);
+          }
+        });
+        // a pasted valid code point jumps immediately
+        field.addEventListener("paste", (e) => {
+          const txt = (e.clipboardData || window.clipboardData).getData("text");
+          if (!txt) return;
+          e.preventDefault();
+          field.value = clean(txt);
+          const cp = parse();
+          if (cp != null && cp === cp && field.value) jump(cp);
+          else err.textContent = cp !== cp ? "beyond U+10FFFF" : "";
+        });
+        // spotlight behavior: clicks on the darkened backdrop close; any
+        // other stray click puts focus back on the field
+        dlg.addEventListener("click", (e) => {
+          if (e.target === dlg) dlg.close();
+        });
+        field.addEventListener("blur", () => {
+          if (dlg.open) requestAnimationFrame(() => field.focus());
+        });
+      })();
 
       /* ---- info tooltip engine (event-delegated, escapes clipping containers) ---- */
       (function () {
