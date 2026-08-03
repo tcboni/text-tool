@@ -3448,6 +3448,64 @@
       // until data arrives and the class is non-empty; the token check drops
       // fills whose selection has moved on.
       const CONF_LIMIT = 15; // chips shown before the "+N more" expander
+      // Script=Common/Inherited tells a confusable chip nothing, so those
+      // chips get a short label for where the character lives instead.
+      // Ranges cut finer than BLOCKS where one block mixes kinds (super vs
+      // subscript, halfwidth vs fullwidth); labels fit the ~13-char row.
+      const CONF_LABELS = [
+        [0x0000, 0x007f, "ASCII"],
+        [0x0080, 0x00ff, "Latin-1"],
+        [0x02b0, 0x02ff, "Modifier"],
+        [0x0300, 0x036f, "Combining"],
+        [0x1ab0, 0x1aff, "Combining"],
+        [0x1dc0, 0x1dff, "Combining"],
+        [0x2000, 0x206f, "Punctuation"],
+        [0x2070, 0x207f, "Superscript"],
+        [0x2080, 0x209f, "Subscript"],
+        [0x20a0, 0x20cf, "Currency"],
+        [0x20d0, 0x20ff, "Combining"],
+        [0x2100, 0x214f, "Letterlike"],
+        [0x2150, 0x218f, "Number forms"],
+        [0x2190, 0x21ff, "Arrows"],
+        [0x2200, 0x22ff, "Math symbols"],
+        [0x2300, 0x23ff, "Technical"],
+        [0x2400, 0x243f, "Control pics"],
+        [0x2460, 0x24ff, "Enclosed"],
+        [0x2500, 0x259f, "Box drawing"],
+        [0x25a0, 0x25ff, "Shapes"],
+        [0x2600, 0x26ff, "Symbols"],
+        [0x2700, 0x27bf, "Dingbats"],
+        [0x27c0, 0x27ef, "Math symbols"],
+        [0x27f0, 0x27ff, "Arrows"],
+        [0x2900, 0x297f, "Arrows"],
+        [0x2980, 0x2aff, "Math symbols"],
+        [0x2b00, 0x2bff, "Symbols"],
+        [0x2e00, 0x2e7f, "Punctuation"],
+        [0x3000, 0x303f, "CJK punct"],
+        [0x3200, 0x32ff, "Enclosed"],
+        [0xa700, 0xa71f, "Modifier"],
+        [0xfe10, 0xfe1f, "Vertical"],
+        [0xfe20, 0xfe2f, "Combining"],
+        [0xfe30, 0xfe4f, "CJK compat"],
+        [0xfe50, 0xfe6f, "Small forms"],
+        [0xff01, 0xff60, "Fullwidth"],
+        [0xff61, 0xffdc, "Halfwidth"],
+        [0xffe0, 0xffe7, "Fullwidth"],
+        [0xffe8, 0xffee, "Halfwidth"],
+        [0x1d400, 0x1d7ff, "Math letters"],
+        [0x1f100, 0x1f2ff, "Enclosed"],
+      ];
+      function confScriptLabel(a) {
+        if (
+          a.script !== "Common" &&
+          a.script !== "Inherited" &&
+          a.script !== "Unknown"
+        )
+          return a.script;
+        for (const [lo, hi, label] of CONF_LABELS)
+          if (a.cp >= lo && a.cp <= hi) return label;
+        return a.block || a.script; // long block names just ellipsize
+      }
       function resolveConfusables(a, g, token) {
         loadConfusables().then((db) => {
           if (token !== _variantToken || !g.isConnected) return;
@@ -3460,7 +3518,7 @@
           const makeChip = (s) => {
             const cps = [...s].map((c) => c.codePointAt(0));
             const as = cps.map(analyzeCodepoint);
-            const script = as[0].script;
+            const script = confScriptLabel(as[0]);
             const chip = el("button", "conf-chip");
             chip.type = "button";
             // combining marks ride a dotted circle; other non-printing
