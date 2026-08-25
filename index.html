@@ -496,31 +496,32 @@
         gap: 6px;
         padding: 0 16px 16px;
       }
+      /* quiet tinted tags — hue carries meaning:
+         amber = emoji, violet = composition, rose = caution, neutral = fact */
       .pill {
         font-family: var(--mono);
         font-size: 10.5px;
-        padding: 3px 8px;
-        border-radius: 20px;
+        line-height: 1.5;
+        padding: 2px 8px;
+        border-radius: 5px;
         border: 1px solid var(--line);
         color: var(--ink-dim);
-      }
-      .pill.pill-cyan {
-        color: #101216;
-        background: var(--cyan);
-        border-color: var(--cyan);
-        font-weight: 600;
+        background: rgba(255, 255, 255, 0.03);
       }
       .pill.pill-amber {
-        color: #101216;
-        background: var(--amber);
-        border-color: var(--amber);
-        font-weight: 600;
+        color: #ffca8f;
+        background: rgba(255, 180, 84, 0.09);
+        border-color: rgba(255, 180, 84, 0.32);
       }
       .pill.pill-violet {
-        color: #101216;
-        background: var(--violet);
-        border-color: var(--violet);
-        font-weight: 600;
+        color: #c5baf7;
+        background: rgba(169, 155, 240, 0.1);
+        border-color: rgba(169, 155, 240, 0.32);
+      }
+      .pill.pill-rose {
+        color: #f8a8b6;
+        background: rgba(240, 118, 139, 0.09);
+        border-color: rgba(240, 118, 139, 0.32);
       }
 
       /* per-platform emoji renderings */
@@ -1980,6 +1981,12 @@
           "Several emoji joined by Zero-Width Joiners into a single glyph.",
         "skin tone": "Includes a skin-tone modifier.",
         flag: "A flag built from regional-indicator letters.",
+        keycap: "A keycap sequence — a digit, # or * enclosed in a keycap frame.",
+        "tag sequence":
+          "Built with invisible tag characters (U+E0020–E007F), as in subdivision flags like Scotland's.",
+        "variation selector":
+          "Contains a variation selector — an invisible character that picks a glyph style, e.g. emoji vs text presentation.",
+        control: "Includes a raw control character.",
         "has combining mark":
           "Includes a combining mark applied to a base character.",
         astral: "Includes a character above U+FFFF.",
@@ -2710,32 +2717,67 @@
         syncDumpSelection();
       }
 
+      // display order: identity, then composition mechanics, then caution
+      const CLUSTER_PILL_ORDER = [
+        "emoji",
+        "flag",
+        "keycap",
+        "skin tone",
+        "ZWJ sequence",
+        "variation selector",
+        "tag sequence",
+        "has combining mark",
+        "astral",
+        "invisible",
+        "bidi control",
+        "control",
+      ];
       function clusterPills(g) {
         const set = new Set();
+        if (g.cps.some((x) => x.cp === 0x200d)) set.add("ZWJ sequence");
         for (const a of g.cps) {
           if (a.flags.emoji) set.add("emoji");
-          if (g.cps.some((x) => x.cp === 0x200d)) set.add("ZWJ sequence");
           if (a.flags.emojiModifier) set.add("skin tone");
           if (a.cp >= 0x1f1e6 && a.cp <= 0x1f1ff) set.add("flag");
+          if (a.cp === 0x20e3) set.add("keycap");
+          if (a.cp >= 0xe0020 && a.cp <= 0xe007f) set.add("tag sequence");
+          const isVS =
+            (a.cp >= 0xfe00 && a.cp <= 0xfe0f) ||
+            (a.cp >= 0xe0100 && a.cp <= 0xe01ef);
+          if (isVS) set.add("variation selector");
           if (a.flags.combining) set.add("has combining mark");
           if (a.flags.astral) set.add("astral");
-          if (a.flags.zeroWidth) set.add("invisible");
+          // ZWJ and variation selectors already have their own pill
+          if (a.flags.zeroWidth && !isVS && a.cp !== 0x200d)
+            set.add("invisible");
           if (a.flags.bidiControl) set.add("bidi control");
+          if (a.cat === "Cc") set.add("control");
         }
         if (!set.size) return "";
         const variant = {
-          "ZWJ sequence": "pill-violet",
-          flag: "pill-violet",
           emoji: "pill-amber",
           "skin tone": "pill-amber",
+          keycap: "pill-amber",
+          "ZWJ sequence": "pill-violet",
+          flag: "pill-violet",
+          "tag sequence": "pill-violet",
+          "variation selector": "pill-violet",
+          "has combining mark": "pill-violet",
+          invisible: "pill-rose",
+          "bidi control": "pill-rose",
+          control: "pill-rose",
         };
         return (
           '<div class="pill-row">' +
           [...set]
+            .sort(
+              (a, b) =>
+                CLUSTER_PILL_ORDER.indexOf(a) - CLUSTER_PILL_ORDER.indexOf(b),
+            )
             .map((s) => {
               const cls =
-                "pill " +
-                (variant[s] || "pill-cyan") +
+                "pill" +
+                (variant[s] ? " " + variant[s] : "") +
                 (PILL_TIPS[s] ? " has-tip" : "");
               const tip = PILL_TIPS[s]
                 ? ' data-tip="' + escapeHtml(PILL_TIPS[s]) + '"'
@@ -3852,10 +3894,23 @@
           ["BMP", F.bmp],
           ["Astral (>U+FFFF)", F.astral],
         ];
+        const propVariant = {
+          Emoji: "pill-amber",
+          "Emoji presentation": "pill-amber",
+          "Emoji modifier": "pill-amber",
+          "Emoji base": "pill-amber",
+          Pictographic: "pill-amber",
+          "Mark / diacritic": "pill-violet",
+          Combining: "pill-violet",
+          "Astral (>U+FFFF)": "pill-violet",
+          Control: "pill-rose",
+          "Zero-width": "pill-rose",
+          "Bidi control": "pill-rose",
+        };
         const pw = el("div", "pill-row");
         pw.style.padding = "4px 16px 16px";
         props.forEach(([label, on]) => {
-          if (on) pw.appendChild(pill(label, "pill-cyan"));
+          if (on) pw.appendChild(pill(label, propVariant[label]));
         });
         if (!pw.children.length)
           pw.appendChild(el("span", "pill", "no notable properties"));
