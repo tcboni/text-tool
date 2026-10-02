@@ -2188,12 +2188,10 @@
         const cat = categoryOf(ch);
         const bytes = utf8Bytes(cp);
         const units = utf16Units(cp);
-        const isControl =
-          cat === "Cc" ||
-          cat === "Cf" ||
-          cat === "Cs" ||
-          cat === "Co" ||
-          cat === "Cn";
+        // Co/Cn/Cs are not controls: private-use glyphs render with the
+        // right font; unassigned code points and lone surrogates get their
+        // own warnings
+        const isControl = cat === "Cc" || cat === "Cf";
         const isSpace = testP("White_Space", ch);
         const zeroWidth =
           [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff].includes(cp) ||
@@ -2203,7 +2201,13 @@
           testP("gc=Mn", ch) || testP("gc=Mc", ch) || testP("gc=Me", ch);
         const isEmoji = testP("Emoji", ch);
         const isPict = testP("Extended_Pictographic", ch);
-        const printable = !isControl && !zeroWidth && cp !== 0x20 && cp > 0x1f;
+        const printable =
+          !isControl &&
+          !zeroWidth &&
+          cat !== "Cn" &&
+          cat !== "Cs" &&
+          cp !== 0x20 &&
+          cp > 0x1f;
 
         return {
           cp,
@@ -2406,6 +2410,7 @@
           cluster,
           cps: [...cluster].map((c) => analyzeCodepoint(c.codePointAt(0))),
         }));
+        markScriptJoiners(graphemes);
         if (selGrapheme >= graphemes.length) selGrapheme = 0;
 
         // segment words once — shared by the stats row and the segmentation card
@@ -2424,17 +2429,92 @@
         renderStringLevel(str, wordSegs);
       }
 
+      // ZWJ/ZWNJ between letters of these scripts select conjuncts and
+      // cursive joins: normal text, not hidden characters
+      const JOINING_SCRIPTS = new Set([
+        "Arabic",
+        "Syriac",
+        "Mongolian",
+        "Adlam",
+        "Devanagari",
+        "Bengali",
+        "Gurmukhi",
+        "Gujarati",
+        "Oriya",
+        "Tamil",
+        "Telugu",
+        "Kannada",
+        "Malayalam",
+        "Sinhala",
+        "Tibetan",
+        "Myanmar",
+        "Khmer",
+      ]);
+
+      // ZWJ/ZWNJ attach to the previous cluster, so the letter after them
+      // is in the next one: scan the flat code point sequence
+      function markScriptJoiners(gs) {
+        const flat = [];
+        for (const g of gs) {
+          g.scriptJoiners = new Set();
+          g.cps.forEach((a, i) => flat.push([g, i, a]));
+        }
+        for (let k = 0; k < flat.length; k++) {
+          const [g, i, a] = flat[k];
+          if (a.cp !== 0x200c && a.cp !== 0x200d) continue;
+          let p = k - 1;
+          while (p >= 0 && flat[p][2].flags.mark) p--; // e.g. virama
+          const prev = p >= 0 ? flat[p][2] : null;
+          const next = k + 1 < flat.length ? flat[k + 1][2] : null;
+          if (
+            prev &&
+            next &&
+            prev.flags.letter &&
+            next.flags.letter &&
+            prev.script === next.script &&
+            JOINING_SCRIPTS.has(prev.script)
+          )
+            g.scriptJoiners.add(i);
+        }
+      }
+
+      // subdivision flag: 🏴 + tag letters + CANCEL TAG
+      function isTagSequence(g) {
+        const c = g.cps;
+        return (
+          c.length > 2 &&
+          c[0].cp === 0x1f3f4 &&
+          c[c.length - 1].cp === 0xe007f &&
+          c.slice(1, -1).every((a) => a.cp >= 0xe0020 && a.cp <= 0xe007e)
+        );
+      }
+
+      // invisible code points that are expected structure, not a
+      // hidden-character red flag
+      function isExpectedInvisible(g, i, emojiG) {
+        if (g.scriptJoiners.has(i)) return true;
+        if (!emojiG) return false;
+        const cp = g.cps[i].cp;
+        if (cp === 0xfe0f || cp === 0xfe0e) return true;
+        // a ZWJ with no emoji after it joins nothing
+        if (cp === 0x200d)
+          return i + 1 < g.cps.length && g.cps[i + 1].flags.pictographic;
+        if (cp >= 0xe0020 && cp <= 0xe007f) return isTagSequence(g);
+        return false;
+      }
+
       function renderWarnings(str) {
         const found = [];
         for (const g of graphemes) {
-          // ZWJ / variation selectors inside a legitimate emoji cluster are
-          // expected structure, not a hidden-character red flag
           const emojiG = isEmojiCluster(g);
-          for (const a of g.cps) {
+          for (let i = 0; i < g.cps.length; i++) {
+            const a = g.cps[i];
             if (a.flags.bidiControl) found.push(["bidi", a]);
-            else if (a.flags.zeroWidth) {
-              if (!emojiG) found.push(["zw", a]);
-            } else if (a.cat === "Co") found.push(["priv", a]);
+            else if (isExpectedInvisible(g, i, emojiG)) continue;
+            else if (a.flags.zeroWidth) found.push(["zw", a]);
+            else if (a.cat === "Co") found.push(["priv", a]);
+            else if (a.cat === "Cn") found.push(["unassigned", a]);
+            else if (a.cat === "Cs") found.push(["surrogate", a]);
             else if (
               a.flags.control &&
               a.cp !== 0x0a &&
@@ -2455,6 +2535,8 @@
           zw: "zero-width / invisible characters",
           ctrl: "control characters",
           priv: "private-use characters (renderer-dependent)",
+          unassigned: "unassigned code points",
+          surrogate: "lone surrogates (invalid UTF-16)",
         };
         const seen = new Set(found.map((f) => f[0]));
         const list = [...seen].map((k) => types[k]).join(", ");
@@ -2538,6 +2620,8 @@
           cps.length === 1 &&
           (first.flags.control ||
             first.flags.zeroWidth ||
+            first.cat === "Cn" ||
+            first.cat === "Cs" ||
             first.cp === 0x20 ||
             first.cp === 0xa0)
         ) {
@@ -2734,9 +2818,11 @@
       ];
       function clusterPills(g) {
         const set = new Set();
-        if (g.cps.some((x) => x.cp === 0x200d)) set.add("ZWJ sequence");
-        for (const a of g.cps) {
-          if (a.flags.emoji) set.add("emoji");
+        const emojiG = isEmojiCluster(g);
+        if (emojiG) set.add("emoji");
+        g.cps.forEach((a, i) => {
+          if (a.cp === 0x200d && emojiG && isExpectedInvisible(g, i, emojiG))
+            set.add("ZWJ sequence");
           if (a.flags.emojiModifier) set.add("skin tone");
           if (a.cp >= 0x1f1e6 && a.cp <= 0x1f1ff) set.add("flag");
           if (a.cp === 0x20e3) set.add("keycap");
@@ -2747,12 +2833,12 @@
           if (isVS) set.add("variation selector");
           if (a.flags.combining) set.add("has combining mark");
           if (a.flags.astral) set.add("astral");
-          // ZWJ and variation selectors already have their own pill
-          if (a.flags.zeroWidth && !isVS && a.cp !== 0x200d)
+          // variation selectors already have their own pill
+          if (a.flags.zeroWidth && !isVS && !isExpectedInvisible(g, i, emojiG))
             set.add("invisible");
           if (a.flags.bidiControl) set.add("bidi control");
           if (a.cat === "Cc") set.add("control");
-        }
+        });
         if (!set.size) return "";
         const variant = {
           emoji: "pill-amber",
@@ -2789,16 +2875,18 @@
         );
       }
 
-      // is this cluster an emoji worth showing platform renderings for?
-      // (excludes bare ASCII digits/#/* which carry the Emoji property but
-      // only render as emoji with an explicit VS16 / keycap)
+      // does this cluster render as an emoji?
+      // Digits, #, * and symbols like © ™ carry the Emoji property but render
+      // as text without an explicit VS16. The base itself must be an emoji:
+      // a VS16 or skin tone after a plain letter does not make it one, and
+      // must not exempt the cluster from hidden-character warnings.
       function isEmojiCluster(g) {
-        return g.cps.some(
-          (a) =>
-            (a.cp >= 0x1f1e6 && a.cp <= 0x1f1ff) || // regional-indicator flag
-            a.cp === 0xfe0f || // explicit emoji presentation
-            a.flags.emojiPresentation || // defaults to emoji
-            a.flags.emojiModifier, // skin-tone modifier
+        const base = g.cps[0];
+        if (base.cp >= 0x1f1e6 && base.cp <= 0x1f1ff) return true; // regional-indicator flag
+        if (!base.flags.emoji) return false;
+        return (
+          base.flags.emojiPresentation ||
+          g.cps.some((a) => a.cp === 0xfe0f || a.flags.emojiModifier)
         );
       }
 
