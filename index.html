@@ -413,10 +413,60 @@
         border-radius: 4px;
         padding: 1px 4px;
       }
-      .nonprint-label {
+
+      /* ---------- invisible characters ----------
+         a dashed box with the code-chart label, as the Unicode code
+         charts draw them; rose when the warning banner counts it */
+      .cc-box {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.6em;
+        height: 2.6em;
+        padding: 0 0.45em;
+        border: 1px dashed var(--ink-faint);
+        border-radius: 3px;
         font-family: var(--mono);
-        font-size: 12px;
+        font-size: 10.5px;
+        font-weight: 500;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        color: var(--ink-dim);
+        white-space: nowrap;
+        vertical-align: middle;
+      }
+      .cc-box.flag {
+        border-color: rgba(240, 118, 139, 0.6);
         color: var(--rose);
+      }
+      .cc-box.more {
+        min-width: 0;
+        border-color: transparent;
+        color: var(--ink-faint);
+      }
+      .cc-seq {
+        display: inline-flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 4px;
+        vertical-align: middle;
+      }
+      .specimen-canvas .cc-box,
+      .goto-glyph .cc-box {
+        font-size: 24px;
+        border-width: 2px;
+        border-radius: 6px;
+      }
+      .field-value .cc-box {
+        min-width: 0;
+        height: auto;
+        padding: 2px 5px;
+      }
+      /* a combining mark on a dotted circle: Chrome on macOS draws
+         ◌ + mark in the system UI font as striped boxes */
+      .mark-carrier {
+        font-family: "Arial Unicode MS", var(--sans);
       }
 
       /* ---------- inspector ---------- */
@@ -461,13 +511,6 @@
         word-break: break-all;
         text-align: center;
         padding: 8px;
-      }
-      .nonprint-note {
-        font-family: var(--mono);
-        font-size: 15px;
-        color: var(--rose);
-        text-align: center;
-        line-height: 1.5;
       }
       .specimen-meta {
         padding: 14px 16px;
@@ -605,9 +648,6 @@
         overflow: hidden;
         color: var(--ink);
       }
-      .conf-glyph .val-dim {
-        font-size: 15px;
-      }
       .conf-cp {
         font-family: var(--mono);
         font-size: 9.5px;
@@ -632,44 +672,66 @@
         color: var(--ink-dim);
       }
 
-      /* code-point selector for multi-codepoint clusters */
-      .codepoint-tabs {
+      /* a multi-codepoint cluster as a sum of its code points */
+      .cp-sum {
         display: flex;
-        gap: 6px;
         flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
         margin-bottom: 14px;
       }
-      .codepoint-tabs:empty {
+      .cp-sum:empty {
         display: none;
         margin: 0;
       }
-      .codepoint-tab {
-        font-family: var(--mono);
-        font-size: 11.5px;
-        color: var(--ink-dim);
+      .cp-term {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        min-width: 52px;
+        padding: 7px 8px 5px;
+        font: inherit;
+        color: var(--ink);
         background: var(--panel-2);
         border: 1px solid var(--line);
-        padding: 6px 10px;
-        border-radius: 7px;
+        border-radius: 8px;
         cursor: pointer;
-        display: flex;
-        gap: 7px;
-        align-items: center;
+        transition: 0.12s;
       }
-      .codepoint-tab:hover {
+      .cp-term:hover {
         border-color: rgba(255, 180, 84, 0.4);
-        color: var(--ink);
+        background: #1b1f25;
       }
-      .codepoint-tab.selected {
+      .cp-term.selected {
         border-color: var(--amber);
+        box-shadow: 0 0 0 1px var(--amber) inset;
+      }
+      .cp-term-glyph {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 30px;
+        font-size: 24px;
+        line-height: 1;
+      }
+      .cp-term-code {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--ink-faint);
+      }
+      .cp-term.selected .cp-term-code {
         color: var(--amber);
       }
-      .tab-role {
+      .cp-op {
+        font-family: var(--mono);
+        font-size: 15px;
         color: var(--ink-faint);
-        font-size: 10px;
       }
-      .codepoint-tab.selected .tab-role {
-        color: var(--amber-dim);
+      .cp-result {
+        font-size: 30px;
+        line-height: 1;
+        margin-left: 2px;
       }
 
       /* ---------- detail table ---------- */
@@ -787,6 +849,9 @@
         text-shadow:
           0 2px 8px rgba(0, 0, 0, 0.9),
           0 1px rgba(0, 0, 0, 0.9);
+        /* anchored to the top so the field and hint stay put when the
+           preview opens below them */
+        margin-top: 18vh;
       }
       #gotoDialog::backdrop {
         background: rgba(0, 0, 0, 0.85);
@@ -820,6 +885,24 @@
         text-transform: uppercase;
         caret-color: var(--amber);
         text-shadow: inherit;
+      }
+      .goto-preview {
+        max-width: 420px;
+        margin: 14px auto 0;
+      }
+      .goto-glyph {
+        font-size: 96px;
+        line-height: 1.2;
+      }
+      .goto-name {
+        font-size: 15px;
+        margin-top: 4px;
+      }
+      .goto-block {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--ink-faint);
+        margin-top: 4px;
       }
       .goto-hint {
         margin-top: 18px;
@@ -1074,7 +1157,7 @@
         min-height: 84px;
       }
       .grapheme-cell:focus-visible,
-      .codepoint-tab:focus-visible,
+      .cp-term:focus-visible,
       .sample-chip:focus-visible,
       .conf-chip:focus-visible,
       .copy-btn:focus-visible {
@@ -1300,7 +1383,7 @@
           <div class="specimen" id="specimen"></div>
           <div>
             <div
-              class="codepoint-tabs"
+              class="cp-sum"
               id="cpsel"
               role="tablist"
               aria-label="Code points in grapheme"
@@ -1381,6 +1464,11 @@
       <div class="goto-hint">
         Enter to jump · Esc to close
         <span class="goto-error" id="gotoErr"></span>
+      </div>
+      <div class="goto-preview" id="gotoPreview" hidden>
+        <div class="goto-glyph" id="gotoGlyph"></div>
+        <div class="goto-name" id="gotoName"></div>
+        <div class="goto-block" id="gotoBlock"></div>
       </div>
     </dialog>
 
@@ -1561,6 +1649,91 @@
         0x00a9: "COPYRIGHT SIGN",
         0x2122: "TRADE MARK SIGN",
         0x20ac: "EURO SIGN",
+      };
+
+      // format characters with a visible glyph: the prepended
+      // concatenation marks that span the digits after them
+      const VISIBLE_FORMAT = new Set([
+        0x600, 0x601, 0x602, 0x603, 0x604, 0x605, 0x6dd, 0x70f, 0x890, 0x891,
+        0x8e2, 0x110bd, 0x110cd,
+      ]);
+
+      // Code-chart labels of invisible characters: the abbreviations from
+      // NameAliases.txt (where a character has two, the one the charts
+      // print), plus short labels in the charts' style for the spaces and
+      // format characters that have none
+      // U+0000–U+0020
+      const C0_LABELS =
+        "NUL,SOH,STX,ETX,EOT,ENQ,ACK,BEL,BS,HT,LF,VT,FF,CR,SO,SI,DLE,DC1,DC2,DC3,DC4,NAK,SYN,ETB,CAN,EM,SUB,ESC,FS,GS,RS,US,SP".split(
+          ",",
+        );
+      // U+0080–U+009F
+      const C1_LABELS =
+        "PAD,HOP,BPH,NBH,IND,NEL,SSA,ESA,HTS,HTJ,VTS,PLD,PLU,RI,SS2,SS3,DCS,PU1,PU2,STS,CCH,MW,SPA,EPA,SOS,SGC,SCI,CSI,ST,OSC,PM,APC".split(
+          ",",
+        );
+      const CHART_LABELS = {
+        0x7f: "DEL",
+        0xa0: "NBSP",
+        0xad: "SHY",
+        0x34f: "CGJ",
+        0x61c: "ALM",
+        0x115f: "HCF",
+        0x1160: "HJF",
+        0x180b: "FVS1",
+        0x180c: "FVS2",
+        0x180d: "FVS3",
+        0x180e: "MVS",
+        0x180f: "FVS4",
+        0x2000: "NQSP",
+        0x2001: "MQSP",
+        0x2002: "ENSP",
+        0x2003: "EMSP",
+        0x2004: "3/MSP",
+        0x2005: "4/MSP",
+        0x2006: "6/MSP",
+        0x2007: "FSP",
+        0x2008: "PSP",
+        0x2009: "THSP",
+        0x200a: "HSP",
+        0x200b: "ZWSP",
+        0x200c: "ZWNJ",
+        0x200d: "ZWJ",
+        0x200e: "LRM",
+        0x200f: "RLM",
+        0x2028: "LSEP",
+        0x2029: "PSEP",
+        0x202a: "LRE",
+        0x202b: "RLE",
+        0x202c: "PDF",
+        0x202d: "LRO",
+        0x202e: "RLO",
+        0x202f: "NNBSP",
+        0x205f: "MMSP",
+        0x2060: "WJ",
+        0x2061: "f()",
+        0x2062: "×",
+        0x2063: ",",
+        0x2064: "+",
+        0x2066: "LRI",
+        0x2067: "RLI",
+        0x2068: "FSI",
+        0x2069: "PDI",
+        0x206a: "ISS",
+        0x206b: "ASS",
+        0x206c: "IAFS",
+        0x206d: "AAFS",
+        0x206e: "NADS",
+        0x206f: "NODS",
+        0x3000: "IDSP",
+        0x3164: "HF",
+        0xfeff: "ZWNBSP",
+        0xffa0: "HWHF",
+        0xfff9: "IAA",
+        0xfffa: "IAS",
+        0xfffb: "IAT",
+        0xe0001: "LANG",
+        0xe007f: "CANCEL",
       };
 
       // Unicode block ranges (comprehensive, [start,end,name])
@@ -1850,7 +2023,7 @@
       // row-label tooltips (detail table + string-level lists)
       const TIPS = {
         Character:
-          "The glyph as it renders. Non-printing characters (spaces, controls, joiners) are labelled instead.",
+          "The glyph as it renders. Invisible characters (spaces, controls, joiners) show as a dashed box with their Unicode code-chart label; combining marks sit on a dotted circle.",
         Name: "The formal name Unicode assigns to this code point. For emoji, the everyday CLDR name is quoted alongside when it differs.",
         "Role in cluster":
           "What job this code point does inside the grapheme — a visible base, an invisible joiner, a modifier, an accent, etc.",
@@ -2201,13 +2374,14 @@
           testP("gc=Mn", ch) || testP("gc=Mc", ch) || testP("gc=Me", ch);
         const isEmoji = testP("Emoji", ch);
         const isPict = testP("Extended_Pictographic", ch);
-        const printable =
-          !isControl &&
-          !zeroWidth &&
-          cat !== "Cn" &&
-          cat !== "Cs" &&
-          cp !== 0x20 &&
-          cp > 0x1f;
+        // U+1680 OGHAM SPACE MARK is whitespace with a visible glyph
+        const invisible =
+          (isSpace && cp !== 0x1680) ||
+          cat === "Cc" ||
+          (cat === "Cf" && !VISIBLE_FORMAT.has(cp)) ||
+          testP("Default_Ignorable_Code_Point", ch);
+        // non-printable code points display as a code-chart box
+        const printable = !invisible && cat !== "Cn" && cat !== "Cs";
 
         return {
           cp,
@@ -2411,6 +2585,7 @@
           cps: [...cluster].map((c) => analyzeCodepoint(c.codePointAt(0))),
         }));
         markScriptJoiners(graphemes);
+        markHidden(graphemes);
         if (selGrapheme >= graphemes.length) selGrapheme = 0;
 
         // segment words once — shared by the stats row and the segmentation card
@@ -2503,27 +2678,34 @@
         return false;
       }
 
+      // the warning-banner kind of the code point at i, or null
+      function hiddenKind(g, i, emojiG) {
+        const a = g.cps[i];
+        if (a.flags.bidiControl) return "bidi";
+        if (isExpectedInvisible(g, i, emojiG)) return null;
+        if (a.flags.zeroWidth) return "zw";
+        if (a.cat === "Co") return "priv";
+        if (a.cat === "Cn") return "unassigned";
+        if (a.cat === "Cs") return "surrogate";
+        if (a.flags.control && a.cp !== 0x0a && a.cp !== 0x09 && a.cp !== 0x0d)
+          return "ctrl";
+        return null;
+      }
+      // g.hidden[i]: the banner kind of each code point, so the display
+      // can mark the same characters the banner counts
+      function markHidden(gs) {
+        for (const g of gs) {
+          const emojiG = isEmojiCluster(g);
+          g.hidden = g.cps.map((a, i) => hiddenKind(g, i, emojiG));
+        }
+      }
+
       function renderWarnings(str) {
         const found = [];
-        for (const g of graphemes) {
-          const emojiG = isEmojiCluster(g);
-          for (let i = 0; i < g.cps.length; i++) {
-            const a = g.cps[i];
-            if (a.flags.bidiControl) found.push(["bidi", a]);
-            else if (isExpectedInvisible(g, i, emojiG)) continue;
-            else if (a.flags.zeroWidth) found.push(["zw", a]);
-            else if (a.cat === "Co") found.push(["priv", a]);
-            else if (a.cat === "Cn") found.push(["unassigned", a]);
-            else if (a.cat === "Cs") found.push(["surrogate", a]);
-            else if (
-              a.flags.control &&
-              a.cp !== 0x0a &&
-              a.cp !== 0x09 &&
-              a.cp !== 0x0d
-            )
-              found.push(["ctrl", a]);
-          }
-        }
+        for (const g of graphemes)
+          g.hidden.forEach((kind, i) => {
+            if (kind) found.push([kind, g.cps[i]]);
+          });
         const w = $("#warn");
         if (!found.length) {
           w.className = "";
@@ -2614,42 +2796,50 @@
           .join("");
       }
 
-      function displayGlyph(cluster, cps) {
-        const first = cps[0];
-        if (
-          cps.length === 1 &&
-          (first.flags.control ||
-            first.flags.zeroWidth ||
-            first.cat === "Cn" ||
-            first.cat === "Cs" ||
-            first.cp === 0x20 ||
-            first.cp === 0xa0)
-        ) {
-          return {
-            html:
-              '<span class="nonprint-label">' + shortLabel(first) + "</span>",
-            printable: false,
-          };
-        }
-        return { html: escapeHtml(cluster), printable: true };
+      // the label inside a code point's dashed box; hex digits when the
+      // charts give it none
+      function chartLabel(cp) {
+        if (cp <= 0x20) return C0_LABELS[cp];
+        if (cp >= 0x80 && cp <= 0x9f) return C1_LABELS[cp - 0x80];
+        if (cp in CHART_LABELS) return CHART_LABELS[cp];
+        if (cp >= 0xfe00 && cp <= 0xfe0f) return "VS" + (cp - 0xfe00 + 1);
+        if (cp >= 0xe0100 && cp <= 0xe01ef) return "VS" + (cp - 0xe0100 + 17);
+        // tag characters mirror printable ASCII
+        if (cp > 0xe0020 && cp < 0xe007f)
+          return String.fromCharCode(cp - 0xe0000);
+        return hex(cp, 4);
       }
-      function shortLabel(a) {
-        const map = {
-          0x20: "SP",
-          0xa0: "NBSP",
-          0x09: "TAB",
-          0x0a: "LF",
-          0x0d: "CR",
-          0x200b: "ZWSP",
-          0x200c: "ZWNJ",
-          0x200d: "ZWJ",
-          0xfeff: "BOM",
-          0x2060: "WJ",
-          0xad: "SHY",
-          0xfe0f: "VS16",
-          0xfe0e: "VS15",
-        };
-        return map[a.cp] || (a.cat === "Cc" ? "CTRL" : "·");
+      // flagged: the warning banner counts this code point
+      function ccBox(a, flagged) {
+        return (
+          '<span class="cc-box' +
+          (flagged ? " flag" : "") +
+          '">' +
+          escapeHtml(chartLabel(a.cp)) +
+          "</span>"
+        );
+      }
+      // boxes for a run of non-printable code points; long runs end in +N
+      function boxSeq(as, hidden) {
+        const boxes = as.slice(0, 3).map((a, i) => ccBox(a, hidden?.[i]));
+        if (as.length > 3)
+          boxes.push(
+            '<span class="cc-box more">+' + (as.length - 3) + "</span>",
+          );
+        return '<span class="cc-seq">' + boxes.join("") + "</span>";
+      }
+      const onDottedCircle = (s) =>
+        '<span class="mark-carrier">◌' + escapeHtml(s) + "</span>";
+      // one code point on its own, drawn as the code charts draw it:
+      // combining marks on a dotted circle
+      function cpGlyph(a, flagged) {
+        if (!a.flags.printable) return ccBox(a, flagged);
+        return a.flags.combining ? onDottedCircle(a.ch) : escapeHtml(a.ch);
+      }
+      function clusterGlyph(g) {
+        return g.cps.every((a) => !a.flags.printable)
+          ? boxSeq(g.cps, g.hidden)
+          : escapeHtml(g.cluster);
       }
 
       function renderStrip() {
@@ -2675,17 +2865,16 @@
           cell.setAttribute(
             "aria-label",
             "grapheme " +
-              i +
+              (i + 1) +
               ", " +
               (g.cps.length === 1
                 ? "U+" + hex(g.cps[0].cp, 4)
                 : g.cps.length + " code points from U+" + hex(g.cps[0].cp, 4)),
           );
-          const disp = displayGlyph(g.cluster, g.cps);
-          cell.appendChild(el("div", "cell-index", i));
+          cell.appendChild(el("div", "cell-index", i + 1));
           if (g.cps.length > 1)
             cell.appendChild(el("div", "cell-badge", g.cps.length + "×"));
-          cell.appendChild(el("div", "glyph", disp.html));
+          cell.appendChild(el("div", "glyph", clusterGlyph(g)));
           cell.appendChild(
             el(
               "div",
@@ -2729,19 +2918,11 @@
         if (!g) return;
         if (selCp >= g.cps.length) selCp = 0;
 
-        const disp = displayGlyph(g.cluster, g.cps);
-        const bigInner = disp.printable
-          ? escapeHtml(g.cluster)
-          : '<div class="nonprint-note">' +
-            escapeHtml(
-              g.cps[0].name ? prettyName(g.cps[0].name) : g.cps[0].catName,
-            ) +
-            "<br>«non-printing»</div>";
         const utf8len = g.cps.reduce((n, a) => n + a.bytes.length, 0);
         const utf16len = g.cps.reduce((n, a) => n + a.units.length, 0);
         $("#specimen").innerHTML =
           '<div class="specimen-canvas">' +
-          bigInner +
+          clusterGlyph(g) +
           "</div>" +
           '<div class="specimen-meta">' +
           '<div class="specimen-codepoint">' +
@@ -2770,34 +2951,50 @@
         if (isEmojiCluster(g)) resolveMicrosoft(g.cluster, _variantToken);
         resolveNames(g, _variantToken);
         const hintParts = [];
-        if (graphemes.length > 1) hintParts.push("grapheme " + selGrapheme);
+        if (graphemes.length > 1)
+          hintParts.push("grapheme " + (selGrapheme + 1));
         if (g.cps.length > 1) hintParts.push(g.cps.length + " code points");
         $("#inspectHint").textContent = hintParts.join(" · ");
 
+        // the cluster as a sum of its code points: 👩 + 🏻 + ZWJ + 🚀 = 👩🏻‍🚀
         const cpsel = $("#cpsel");
         cpsel.innerHTML = "";
         if (g.cps.length > 1) {
+          const decor = (cls, html) => {
+            const s = el("span", cls, html);
+            s.setAttribute("aria-hidden", "true");
+            return s;
+          };
           g.cps.forEach((a, i) => {
+            if (i) cpsel.appendChild(decor("cp-op", "+"));
             const t = el(
-              "div",
-              "codepoint-tab" + (i === selCp ? " selected" : ""),
-              "U+" +
+              "button",
+              "cp-term" + (i === selCp ? " selected" : ""),
+              '<span class="cp-term-glyph">' +
+                cpGlyph(a, g.hidden[i]) +
+                '</span><span class="cp-term-code">U+' +
                 hex(a.cp, 4) +
-                ' <span class="tab-role">' +
-                a.role +
                 "</span>",
             );
+            t.type = "button";
+            t.dataset.ci = i;
+            t.dataset.tip = a.role.charAt(0).toUpperCase() + a.role.slice(1);
             t.setAttribute("role", "tab");
             t.setAttribute("aria-selected", i === selCp);
+            t.setAttribute("aria-label", "U+" + hex(a.cp, 4) + ", " + a.role);
             t.tabIndex = i === selCp ? 0 : -1;
             t.addEventListener("click", () => {
               selCp = i;
               renderInspector();
+              const c = cpsel.querySelector('[data-ci="' + i + '"]');
+              if (c) c.focus({ preventScroll: true });
             });
             cpsel.appendChild(t);
           });
+          cpsel.appendChild(decor("cp-op", "="));
+          cpsel.appendChild(decor("cp-result", clusterGlyph(g)));
         }
-        renderDetail(g.cps[selCp]);
+        renderDetail(g.cps[selCp], g.hidden[selCp]);
         syncDumpSelection();
       }
 
@@ -3651,19 +3848,12 @@
             const script = confScriptLabel(as[0]);
             const chip = el("button", "conf-chip");
             chip.type = "button";
-            // combining marks ride a dotted circle; other non-printing
-            // members get a dim placeholder so the chip never looks empty
-            const disp = as.every((x) => x.flags.combining) ? "◌" + s : s;
-            const printable = as.some(
-              (x) => x.flags.printable || x.flags.combining,
-            );
-            chip.appendChild(
-              el(
-                "div",
-                "conf-glyph",
-                printable ? escapeHtml(disp) : '<span class="val-dim">·</span>',
-              ),
-            );
+            const glyph = as.every((x) => !x.flags.printable)
+              ? boxSeq(as)
+              : as.every((x) => x.flags.combining)
+                ? onDottedCircle(s)
+                : escapeHtml(s);
+            chip.appendChild(el("div", "conf-glyph", glyph));
             chip.appendChild(
               el("div", "conf-cp", cps.map((c) => "U+" + hex(c, 4)).join(" ")),
             );
@@ -3719,7 +3909,7 @@
         });
       }
 
-      function renderDetail(a) {
+      function renderDetail(a, flagged) {
         const d = $("#detail");
         d.innerHTML = "";
         const cp = a.cp;
@@ -3729,11 +3919,10 @@
         g1.appendChild(
           dataRow(
             "Character",
-            a.flags.printable
-              ? escapeHtml(a.ch)
-              : '<span class="val-dim">' +
-                  escapeHtml(a.name ? prettyName(a.name) : a.catName) +
-                  " (non-printing)</span>",
+            cpGlyph(a, flagged) +
+              (a.flags.printable
+                ? ""
+                : ' <span class="val-dim">(non-printing)</span>'),
             a.ch,
           ),
         );
@@ -3747,8 +3936,7 @@
         nameRow.id = "nameRow";
         if (!a.name) nameRow.style.display = "none";
         g1.appendChild(nameRow);
-        // sentence-cased here to sit alongside Category/Script/Block values;
-        // the codepoint-tab annotations keep the lowercase tag form
+        // sentence-cased here to sit alongside Category/Script/Block values
         const roleSent = a.role.charAt(0).toUpperCase() + a.role.slice(1);
         g1.appendChild(dataRow("Role in cluster", roleSent, roleSent));
         g1.appendChild(
@@ -4353,7 +4541,7 @@
         showToast("Link copied to clipboard");
       });
 
-      /* ---- keyboard navigation: strip (←/→/Home/End) & code-point tabs ---- */
+      /* ---- keyboard navigation: strip (←/→/Home/End) & sum terms ---- */
       $("#strip").addEventListener("keydown", (e) => {
         if (!graphemes.length) return;
         let i = selGrapheme;
@@ -4380,7 +4568,7 @@
         e.preventDefault();
         selCp = (i + g.cps.length) % g.cps.length;
         renderInspector();
-        const t = $("#cpsel").children[selCp];
+        const t = $('#cpsel [data-ci="' + selCp + '"]');
         if (t) t.focus();
       });
 
@@ -4389,12 +4577,18 @@
         const dlg = $("#gotoDialog");
         const field = $("#gotoInput");
         const err = $("#gotoErr");
+        const pv = $("#gotoPreview");
+        const pvGlyph = $("#gotoGlyph");
+        const pvName = $("#gotoName");
+        const pvBlock = $("#gotoBlock");
+        let pvToken = 0; // drops a name lookup once the entry has changed
         const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
         $("#gotobtn").dataset.tip =
           "Jump to a code point (" + (isMac ? "⌘G" : "Ctrl+G") + ")";
         function open() {
           field.value = "";
           err.textContent = "";
+          preview();
           dlg.showModal();
         }
         $("#gotobtn").addEventListener("click", open);
@@ -4423,10 +4617,30 @@
           inp.value = String.fromCodePoint(cp);
           inp.dispatchEvent(new Event("input", { bubbles: true }));
         }
+        function preview() {
+          const cp = parse();
+          const token = ++pvToken;
+          if (cp == null || cp !== cp) {
+            pv.hidden = true;
+            return;
+          }
+          const a = analyzeCodepoint(cp);
+          pvGlyph.innerHTML = cpGlyph(a);
+          pvBlock.textContent = a.block;
+          const local = a.name || (_cpNames && formalNameFor(_cpNames, cp));
+          pvName.textContent = local ? prettyName(local) : a.catName;
+          if (!local && !_cpNames)
+            loadCpNames().then((db) => {
+              const nm = formalNameFor(db, cp);
+              if (nm && token === pvToken) pvName.textContent = prettyName(nm);
+            });
+          pv.hidden = false;
+        }
         field.addEventListener("input", () => {
           const c = clean(field.value);
           if (c !== field.value) field.value = c;
           err.textContent = parse() !== parse() ? "beyond U+10FFFF" : "";
+          preview();
         });
         field.addEventListener("keydown", (e) => {
           if (e.key === "Enter") {
@@ -4445,7 +4659,10 @@
           field.value = clean(txt);
           const cp = parse();
           if (cp != null && cp === cp && field.value) jump(cp);
-          else err.textContent = cp !== cp ? "beyond U+10FFFF" : "";
+          else {
+            err.textContent = cp !== cp ? "beyond U+10FFFF" : "";
+            preview();
+          }
         });
         // spotlight behavior: clicks on the darkened backdrop close; any
         // other stray click puts focus back on the field
@@ -4461,7 +4678,13 @@
       (function () {
         const tt = $("#tooltip");
         let cur = null;
+        function hide() {
+          cur = null;
+          tt.classList.remove("visible");
+        }
         function place(target) {
+          // a click can re-render its own target away (the sum terms)
+          if (!target.isConnected) return hide();
           tt.textContent = target.dataset.tip;
           tt.classList.remove("tooltip-below");
           tt.style.left = "-9999px";
@@ -4493,31 +4716,23 @@
           if (t && t !== cur) {
             cur = t;
             place(t);
-          }
+          } else if (!t && cur && !cur.isConnected) hide();
         });
         document.addEventListener("mouseout", (e) => {
           const t = e.target.closest && e.target.closest("[data-tip]");
-          if (t && t === cur) {
-            cur = null;
-            tt.classList.remove("visible");
-          }
+          if (t && t === cur) hide();
         });
         // touch devices get no mouseover — tap a tipped element to toggle it
         document.addEventListener("click", (e) => {
           if (!window.matchMedia("(hover: none)").matches) return;
           const t = e.target.closest && e.target.closest("[data-tip]");
           if (t) {
-            if (cur === t) {
-              cur = null;
-              tt.classList.remove("visible");
-            } else {
+            if (cur === t) hide();
+            else {
               cur = t;
               place(t);
             }
-          } else if (cur) {
-            cur = null;
-            tt.classList.remove("visible");
-          }
+          } else if (cur) hide();
         });
         window.addEventListener(
           "scroll",
