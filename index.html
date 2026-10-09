@@ -452,9 +452,10 @@
         gap: 4px;
         vertical-align: middle;
       }
+      /* em, so a box shrinks with the go-to glyph when it is fitted */
       .specimen-canvas .cc-box,
       .goto-glyph .cc-box {
-        font-size: 24px;
+        font-size: 0.25em;
         border-width: 2px;
         border-radius: 6px;
       }
@@ -837,83 +838,188 @@
         stroke-linejoin: round;
       }
 
-      /* ---------- go-to code point dialog (spotlight style) ---------- */
+      /* ---------- go-to code point dialog ----------
+         a specimen card: every part has a fixed size, so the centred
+         dialog never moves while the preview changes */
       #gotoDialog {
-        background: transparent;
-        border: 0;
-        outline: 0;
         padding: 0;
+        border: 0;
+        background: none;
         color: var(--ink);
-        text-align: center;
-        /* floating text over arbitrary page content needs its own contrast */
-        text-shadow:
-          0 2px 8px rgba(0, 0, 0, 0.9),
-          0 1px rgba(0, 0, 0, 0.9);
-        /* anchored to the top so the field and hint stay put when the
-           preview opens below them */
-        margin-top: 18vh;
+        /* the panel's shadow reaches past the dialog box */
+        overflow: visible;
       }
       #gotoDialog::backdrop {
-        background: rgba(0, 0, 0, 0.85);
+        background: rgba(5, 6, 8, 0.72);
+        backdrop-filter: blur(4px);
+      }
+      .goto-panel {
+        width: 520px;
+        max-width: calc(100vw - 40px);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+        animation: goto-in 0.14s ease-out;
+      }
+      @keyframes goto-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px) scale(0.985);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .goto-panel {
+          animation: none;
+        }
+      }
+      .goto-body {
+        display: flex;
+        gap: 22px;
+        padding: 20px;
+      }
+      .goto-tile {
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        width: 148px;
+        height: 148px;
+        padding: 0;
+        overflow: hidden;
+        color: var(--ink);
+        background:
+          linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/100% 19px,
+          linear-gradient(90deg, var(--line-soft) 1px, transparent 1px) 0 0/19px
+            100%,
+          #101216;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: border-color 0.12s;
+      }
+      .goto-tile:hover {
+        border-color: rgba(255, 180, 84, 0.45);
+      }
+      .goto-tile:disabled {
+        cursor: default;
+        border-color: var(--line);
+      }
+      .goto-glyph {
+        /* flex centres a dashed box exactly; text keeps its line box */
+        display: flex;
+        align-items: center;
+        font-family: var(--sans);
+        font-size: 88px;
+        line-height: 1;
+        white-space: nowrap;
+      }
+      .goto-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
       }
       .goto-title {
         font-family: var(--mono);
         font-size: 11px;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--amber-dim);
-        margin-bottom: 18px;
+        color: var(--ink-faint);
       }
       .goto-field {
         display: flex;
         align-items: baseline;
-        justify-content: center;
+        margin-top: 4px;
         font-family: var(--mono);
-        font-size: 52px;
+        font-size: 46px;
+        line-height: 1.15;
       }
       .goto-prefix {
-        color: var(--ink-faint);
+        color: var(--amber-dim);
         user-select: none;
       }
       #gotoInput {
+        flex: 1;
+        min-width: 0;
+        padding: 0;
         background: none;
         border: 0;
         outline: 0;
-        color: var(--ink);
+        color: var(--amber);
         font: inherit;
-        width: 6.5ch;
         text-transform: uppercase;
         caret-color: var(--amber);
-        text-shadow: inherit;
-      }
-      .goto-preview {
-        max-width: 420px;
-        margin: 14px auto 0;
-      }
-      .goto-glyph {
-        font-size: 96px;
-        line-height: 1.2;
       }
       .goto-name {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow: hidden;
         font-size: 15px;
-        margin-top: 4px;
+        line-height: 1.35;
       }
-      .goto-block {
+      .goto-name.hint {
+        color: var(--ink-faint);
+      }
+      .goto-name.error {
+        color: var(--rose);
+      }
+      .goto-meta {
+        min-height: 1.4em;
+        margin-top: 4px;
+        overflow: hidden;
         font-family: var(--mono);
         font-size: 11.5px;
+        line-height: 1.4;
         color: var(--ink-faint);
-        margin-top: 4px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
       }
-      .goto-hint {
-        margin-top: 18px;
+      .goto-foot {
+        display: flex;
+        gap: 18px;
+        padding: 10px 20px;
+        background: #101216;
+        border-top: 1px solid var(--line-soft);
         font-family: var(--mono);
-        font-size: 11.5px;
+        font-size: 11px;
         color: var(--ink-faint);
-        line-height: 1.6;
       }
-      .goto-error {
-        display: block;
-        color: var(--amber);
+      .goto-foot kbd {
+        margin-right: 5px;
+        padding: 0 5px;
+        font: inherit;
+        color: var(--ink-dim);
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+      }
+      .goto-foot .goto-esc {
+        margin-left: auto;
+      }
+      @media (max-width: 520px) {
+        .goto-body {
+          gap: 16px;
+          padding: 16px;
+        }
+        .goto-tile {
+          width: 104px;
+          height: 104px;
+        }
+        .goto-glyph {
+          font-size: 62px;
+        }
+        .goto-field {
+          font-size: 34px;
+        }
+        .goto-name {
+          -webkit-line-clamp: 1;
+          line-clamp: 1;
+        }
       }
 
       /* ---------- info tooltip ---------- */
@@ -1449,26 +1555,41 @@
       </div>
     </div>
 
-    <dialog id="gotoDialog">
-      <div class="goto-title">Go to code point</div>
-      <div class="goto-field">
-        <span class="goto-prefix">U+</span>
-        <input
-          id="gotoInput"
-          maxlength="6"
-          spellcheck="false"
-          autocomplete="off"
-          aria-label="Code point in hexadecimal"
-        />
-      </div>
-      <div class="goto-hint">
-        Enter to jump · Esc to close
-        <span class="goto-error" id="gotoErr"></span>
-      </div>
-      <div class="goto-preview" id="gotoPreview" hidden>
-        <div class="goto-glyph" id="gotoGlyph"></div>
-        <div class="goto-name" id="gotoName"></div>
-        <div class="goto-block" id="gotoBlock"></div>
+    <dialog id="gotoDialog" aria-labelledby="gotoTitle">
+      <div class="goto-panel">
+        <div class="goto-body">
+          <button
+            class="goto-tile"
+            id="gotoTile"
+            type="button"
+            tabindex="-1"
+            aria-label="Jump to this code point"
+          ></button>
+          <div class="goto-main">
+            <div>
+              <div class="goto-title" id="gotoTitle">Go to code point</div>
+              <div class="goto-field">
+                <span class="goto-prefix">U+</span>
+                <input
+                  id="gotoInput"
+                  maxlength="6"
+                  spellcheck="false"
+                  autocomplete="off"
+                  aria-label="Code point in hexadecimal"
+                />
+              </div>
+            </div>
+            <div>
+              <div class="goto-name" id="gotoName" aria-live="polite"></div>
+              <div class="goto-meta" id="gotoMeta"></div>
+            </div>
+          </div>
+        </div>
+        <div class="goto-foot">
+          <span><kbd>↵</kbd>jump</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd>browse</span>
+          <span class="goto-esc"><kbd>esc</kbd>close</span>
+        </div>
       </div>
     </dialog>
 
@@ -4572,22 +4693,19 @@
         if (t) t.focus();
       });
 
-      /* ---- go-to code point dialog (header button or Cmd/Ctrl+K) ---- */
+      /* ---- go-to code point dialog (header button or Cmd/Ctrl+G) ---- */
       (function () {
         const dlg = $("#gotoDialog");
         const field = $("#gotoInput");
-        const err = $("#gotoErr");
-        const pv = $("#gotoPreview");
-        const pvGlyph = $("#gotoGlyph");
-        const pvName = $("#gotoName");
-        const pvBlock = $("#gotoBlock");
-        let pvToken = 0; // drops a name lookup once the entry has changed
+        const tile = $("#gotoTile");
+        const nameEl = $("#gotoName");
+        const metaEl = $("#gotoMeta");
+        let token = 0; // drops async fills once the entry has changed
         const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
         $("#gotobtn").dataset.tip =
           "Jump to a code point (" + (isMac ? "⌘G" : "Ctrl+G") + ")";
         function open() {
           field.value = "";
-          err.textContent = "";
           preview();
           dlg.showModal();
         }
@@ -4617,29 +4735,53 @@
           inp.value = String.fromCodePoint(cp);
           inp.dispatchEvent(new Event("input", { bubbles: true }));
         }
+        // shrink glyphs wider than the tile, such as ﷽
+        function fit(glyph) {
+          const room = tile.clientWidth - 24;
+          const w = glyph.getBoundingClientRect().width;
+          if (room > 0 && w > room)
+            glyph.style.fontSize =
+              (parseFloat(getComputedStyle(glyph).fontSize) * room) / w + "px";
+        }
         function preview() {
           const cp = parse();
-          const token = ++pvToken;
-          if (cp == null || cp !== cp) {
-            pv.hidden = true;
+          const t = ++token;
+          const ok = cp != null && cp === cp;
+          tile.disabled = !ok;
+          if (!ok) {
+            tile.textContent = "";
+            nameEl.className = "goto-name " + (cp == null ? "hint" : "error");
+            nameEl.textContent =
+              cp == null
+                ? "Type a code point in hex"
+                : "Beyond U+10FFFF, the last code point";
+            metaEl.textContent = "";
             return;
           }
           const a = analyzeCodepoint(cp);
-          pvGlyph.innerHTML = cpGlyph(a);
-          pvBlock.textContent = a.block;
+          tile.innerHTML = '<span class="goto-glyph">' + cpGlyph(a) + "</span>";
+          fit(tile.firstChild);
+          nameEl.className = "goto-name";
           const local = a.name || (_cpNames && formalNameFor(_cpNames, cp));
-          pvName.textContent = local ? prettyName(local) : a.catName;
+          nameEl.textContent = local ? prettyName(local) : a.catName;
           if (!local && !_cpNames)
             loadCpNames().then((db) => {
               const nm = formalNameFor(db, cp);
-              if (nm && token === pvToken) pvName.textContent = prettyName(nm);
+              if (nm && t === token) nameEl.textContent = prettyName(nm);
             });
-          pv.hidden = false;
+          const meta = (ages) => {
+            const ver = ages && rangeValueOf(ages.ranges, cp);
+            metaEl.textContent = a.block + (ver ? " · Unicode " + ver : "");
+          };
+          meta(_ages);
+          if (!_ages)
+            loadAges().then((db) => {
+              if (t === token) meta(db);
+            });
         }
         field.addEventListener("input", () => {
           const c = clean(field.value);
           if (c !== field.value) field.value = c;
-          err.textContent = parse() !== parse() ? "beyond U+10FFFF" : "";
           preview();
         });
         field.addEventListener("keydown", (e) => {
@@ -4649,21 +4791,29 @@
             if (cp === null)
               dlg.close(); // empty field: Enter backs out
             else if (cp === cp) jump(cp);
+          } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+            // step from the typed code point; from an empty field, step
+            // from the one being inspected
+            e.preventDefault();
+            let cp = parse();
+            if (cp !== cp) cp = 0x110000;
+            else if (cp == null) {
+              const g = $("#input").value && graphemes[selGrapheme];
+              cp = g ? g.cps[selCp].cp : -1;
+            }
+            cp += e.key === "ArrowUp" ? 1 : -1;
+            field.value = hex(Math.max(0, Math.min(0x10ffff, cp)), 4);
+            preview();
           }
         });
-        // a pasted valid code point jumps immediately
         field.addEventListener("paste", (e) => {
           const txt = (e.clipboardData || window.clipboardData).getData("text");
           if (!txt) return;
           e.preventDefault();
           field.value = clean(txt);
-          const cp = parse();
-          if (cp != null && cp === cp && field.value) jump(cp);
-          else {
-            err.textContent = cp !== cp ? "beyond U+10FFFF" : "";
-            preview();
-          }
+          preview();
         });
+        tile.addEventListener("click", () => jump(parse()));
         // spotlight behavior: clicks on the darkened backdrop close; any
         // other stray click puts focus back on the field
         dlg.addEventListener("click", (e) => {
